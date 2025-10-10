@@ -1,0 +1,116 @@
+version: "3.9"
+
+services:
+  # -----------------------------
+  # Databases
+  # -----------------------------
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql
+    environment:
+      SA_PASSWORD: ${MSSQL_PASSWORD}
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - ./scripts/mssql:/docker-entrypoint-initdb.d
+    networks:
+      - data_env_net
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./scripts/mysql:/docker-entrypoint-initdb.d
+    networks:
+      - data_env_net
+
+  postgres:
+    image: supabase/postgres:15
+    container_name: supabase
+    environment:
+      POSTGRES_DB: ${SUPABASE_DB}
+      POSTGRES_USER: ${SUPABASE_USER}
+      POSTGRES_PASSWORD: ${SUPABASE_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./scripts/supabase:/docker-entrypoint-initdb.d
+    networks:
+      - data_env_net
+
+  mongo:
+    image: mongo:7
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./scripts/mongo:/docker-entrypoint-initdb.d
+    networks:
+      - data_env_net
+
+  neo4j:
+    image: neo4j:5
+    container_name: neo4j
+    environment:
+      - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASS}
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ./scripts/neo4j:/docker-entrypoint-initdb.d
+    networks:
+      - data_env_net
+
+  # -----------------------------
+  # Python backend (ETL + API)
+  # -----------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - ENV=development
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - mssql
+      - mysql
+      - postgres
+      - mongo
+      - neo4j
+    networks:
+      - data_env_net
+
+  # -----------------------------
+  # Frontend (React/Vite)
+  # -----------------------------
+  frontend:
+    image: node:18
+    container_name: frontend
+    working_dir: /app
+    command: bash -c "npm install && npm run dev"
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - data_env_net
+
+networks:
+  data_env_net:
+    driver: bridge

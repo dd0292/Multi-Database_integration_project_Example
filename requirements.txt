@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+sqlalchemy
+pyodbc
+pymysql
+pydantic
+psycopg2-binary
+pymongo
+neo4j
+pandas
+mlxtend
+requests
+python-dotenv
+"pymongo[srv]"
