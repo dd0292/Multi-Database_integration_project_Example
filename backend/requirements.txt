@@ -11,4 +11,3 @@ pandas
 mlxtend
 requests
 python-dotenv
-"pymongo[srv]"

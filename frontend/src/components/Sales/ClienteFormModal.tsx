@@ -6,7 +6,7 @@ import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 
-interface ClienteFormData {
+export interface ClienteFormData {
   nombre: string;
   email: string;
   genero: string;

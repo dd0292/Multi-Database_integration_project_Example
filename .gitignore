@@ -11,11 +11,15 @@ build/
 .next/
 
 # Environment variables
+.venv
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+#python cache
+__pycache__
 
 # IDE and editor files
 .vscode/

@@ -1,18 +1,19 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
-import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { ClienteFormModal } from "../../components/Sales/ClienteFormModal";
-import { toast } from "sonner";
-import api from "../../services/api";
+import { ClienteFormModal, type ClienteFormData } from "../../components/Sales/ClienteFormModal";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MongoCliente } from "../../types/databases";
+import { Button } from "../../components/ui/button";
+import api from "../../services/api";
+import { Plus } from "lucide-react";
+import { AxiosError } from "axios";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const MongoClientes = () => {
-  const [page] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const limit = 20;
   const queryClient = useQueryClient();
+  const [page] = useState(1);
+  const limit = 20;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["mongo-clientes", page],
@@ -25,29 +26,32 @@ const MongoClientes = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return api.post("/mongo/clientes", {
+    mutationFn: async (data: ClienteFormData) => {
+      const response = await api.post("/mongo/clientes", {
         nombre: data.nombre,
         email: data.email,
         genero: data.genero,
         pais: data.pais,
         creado: new Date().toISOString(),
       });
+      console.log(data);
+      return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["mongo-clientes"] });
       toast.success("Cliente creado exitosamente");
       setIsFormOpen(false);
+      console.log("Created cliente:", data);
     },
-    onError: () => {
-      toast.error("Error al crear cliente");
+    onError: (error: AxiosError<{ detail?: string }>) => {
+      const errorMessage = error.response?.data?.detail || "Error al crear cliente";
+      toast.error(errorMessage);
     },
   });
 
   if (error) {
     toast.error("Error loading clients");
   }
-
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
