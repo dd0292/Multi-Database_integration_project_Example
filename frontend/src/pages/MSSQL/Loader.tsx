@@ -52,6 +52,7 @@ const MSSQLLoader = () => {
         toast.success("All rows validated successfully!");
       }
     } catch (error) {
+      console.error("Error in MyComponent:", error);
       toast.error("Validation failed");
     } finally {
       setIsValidating(false);
@@ -86,6 +87,7 @@ const MSSQLLoader = () => {
       toast.success(`Successfully imported ${parsedData.rows.length} rows!`);
     } catch (error) {
       setUploadStatus("idle");
+      console.error("Error in MyComponent:", error);
       toast.error("Upload failed");
     }
   };

@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 
 export interface ParsedData {
   headers: string[];
-  rows: Record<string, any>[];
+  rows: Record<string, unknown>[];
 }
 
 export const parseCSV = (file: File): Promise<ParsedData> => {
@@ -14,7 +14,7 @@ export const parseCSV = (file: File): Promise<ParsedData> => {
       complete: (results) => {
         resolve({
           headers: results.meta.fields || [],
-          rows: results.data as Record<string, any>[],
+          rows: results.data as Record<string, unknown>[],
         });
       },
       error: (error) => reject(error),
@@ -37,10 +37,10 @@ export const parseExcel = async (file: File): Promise<ParsedData> => {
           return;
         }
 
-        const headers = Object.keys(jsonData[0] as Record<string, any>);
+        const headers = Object.keys(jsonData[0] as Record<string, unknown>);
         resolve({
           headers,
-          rows: jsonData as Record<string, any>[],
+          rows: jsonData as Record<string, unknown>[],
         });
       } catch (error) {
         reject(error);
@@ -63,7 +63,7 @@ export const parseFile = async (file: File): Promise<ParsedData> => {
   }
 };
 
-export const downloadCSV = (data: any[], filename: string) => {
+export const downloadCSV = (data: unknown[], filename: string) => {
   const csv = Papa.unparse(data);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");

@@ -10,7 +10,7 @@ import api from "../../services/api";
 import type { MySQLOrden } from "../../types/databases";
 
 const MySQLOrdenes = () => {
-  const [page, setPage] = useState(1);
+  const [page] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const limit = 20;
   const queryClient = useQueryClient();
@@ -66,6 +66,8 @@ const MySQLOrdenes = () => {
         onOpenChange={setIsFormOpen}
         onSubmit={(data) => createMutation.mutate(data)}
         dbType="mysql"
+        canales={["WEB", "TIENDA", "APP"]}
+        monedas={["USD","CRC"]}
       />
 
       <Card className="border-l-4 border-mysql">

@@ -36,7 +36,7 @@ export interface MongoOrden {
   moneda: "CRC" | "USD";
   total?: number;
   items: MongoOrdenItem[];
-  metadatos?: Record<string, any>;
+  metadatos?: Record<string, unknown>;
 }
 
 // MS SQL Types

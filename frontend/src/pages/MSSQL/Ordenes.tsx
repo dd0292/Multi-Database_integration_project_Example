@@ -66,6 +66,9 @@ const MSSQLOrdenes = () => {
         onOpenChange={setIsFormOpen}
         onSubmit={(data) => createMutation.mutate(data)}
         dbType="mssql"
+        canales={["WEB", "TIENDA", "APP"]}
+        monedas={["USD"]}
+        addDescuentoPct = {true}
       />
 
       <Card className="border-l-4 border-mssql">

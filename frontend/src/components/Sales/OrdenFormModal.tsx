@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useForm, useFieldArray } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { FormModal } from "../../components/common/FormModal";
@@ -5,6 +6,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { Textarea } from "../../components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import api from "../../services/api";
 
@@ -12,6 +14,7 @@ interface OrdenItem {
   producto_id: string;
   cantidad: number;
   precio_unit: number;
+  descuento_pct?: number;
 }
 
 interface OrdenFormData {
@@ -20,6 +23,7 @@ interface OrdenFormData {
   canal: string;
   moneda: string;
   items: OrdenItem[];
+  descripcion?: string;
 }
 
 interface OrdenFormModalProps {
@@ -27,24 +31,30 @@ interface OrdenFormModalProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: OrdenFormData) => void;
   dbType: "mongo" | "mssql" | "mysql" | "supabase" | "neo4j";
+  monedas: Array<string>;
+  canales: Array<string>;
+  addDescuentoPct?: boolean;
+  extraInfo?: boolean;
 }
-
-const CANALES = ["WEB", "TIENDA", "APP"];
-const MONEDAS = ["CRC", "USD"];
 
 export function OrdenFormModal({
   open,
   onOpenChange,
   onSubmit,
   dbType,
+  monedas,
+  canales,
+  addDescuentoPct = false,
+  extraInfo = false
 }: OrdenFormModalProps) {
   const { register, handleSubmit, setValue, watch, control, reset, formState: { errors } } = useForm<OrdenFormData>({
     defaultValues: {
       cliente_id: "",
       fecha: new Date().toISOString().split("T")[0],
-      canal: "WEB",
-      moneda: "CRC",
-      items: [{ producto_id: "", cantidad: 1, precio_unit: 0 }],
+      canal: canales[0],
+      moneda: monedas[0],
+      items: [{ producto_id: "", cantidad: 1, precio_unit: 0, descuento_pct: 0 }],
+      descripcion: "",
     },
   });
 
@@ -71,14 +81,43 @@ export function OrdenFormModal({
     enabled: open,
   });
 
+  const calculateItemTotal = (item: OrdenItem) => {
+    const subtotal = item.cantidad * item.precio_unit;
+    const descuento = subtotal * ((item.descuento_pct || 0) / 100);
+    return subtotal - descuento;
+  };
+
+  const calculateItemSubtotal = (item: OrdenItem) => {
+    return item.cantidad * item.precio_unit;
+  };
+
+  const calculateItemDescuento = (item: OrdenItem) => {
+    const subtotal = item.cantidad * item.precio_unit;
+    return subtotal * ((item.descuento_pct || 0) / 100);
+  };
+
+  const calculateSubtotal = () => {
+    const items = watch("items");
+    return items.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
+  };
+
+  const calculateTotalDescuento = () => {
+    const items = watch("items");
+    return items.reduce((sum, item) => sum + calculateItemDescuento(item), 0);
+  };
+
   const calculateTotal = () => {
     const items = watch("items");
-    return items.reduce((sum, item) => sum + (item.cantidad * item.precio_unit), 0);
+    return items.reduce((sum, item) => sum + calculateItemTotal(item), 0);
   };
 
   const onFormSubmit = (data: OrdenFormData) => {
     onSubmit(data);
     reset();
+  };
+
+  const addItem = () => {
+    append({ producto_id: "", cantidad: 1, precio_unit: 0, descuento_pct: 0 });
   };
 
   return (
@@ -132,7 +171,7 @@ export function OrdenFormModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CANALES.map((c) => (
+                {canales.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
@@ -152,7 +191,7 @@ export function OrdenFormModal({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {MONEDAS.map((m) => (
+              {monedas.map((m) => (
                 <SelectItem key={m} value={m}>
                   {m}
                 </SelectItem>
@@ -161,6 +200,19 @@ export function OrdenFormModal({
           </Select>
         </div>
 
+        {/* Extra Info - Description */}
+        {extraInfo && (
+          <div className="space-y-2">
+            <Label htmlFor="descripcion">Descripción (Opcional)</Label>
+            <Textarea
+              id="descripcion"
+              {...register("descripcion")}
+              placeholder="Descripción adicional de la orden..."
+              rows={3}
+            />
+          </div>
+        )}
+
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Items</Label>
@@ -168,7 +220,7 @@ export function OrdenFormModal({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => append({ producto_id: "", cantidad: 1, precio_unit: 0 })}
+              onClick={addItem}
             >
               <Plus className="h-4 w-4 mr-1" />
               Agregar
@@ -177,14 +229,14 @@ export function OrdenFormModal({
 
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {fields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 items-start p-2 border rounded">
+              <div key={field.id} className="flex gap-2 items-start p-3 border rounded-lg">
                 <div className="flex-1 space-y-2">
                   <Select
                     value={watch(`items.${index}.producto_id`)}
                     onValueChange={(value) => setValue(`items.${index}.producto_id`, value)}
                   >
                     <SelectTrigger className="text-xs">
-                      <SelectValue placeholder="Producto" />
+                      <SelectValue placeholder="Seleccionar producto" />
                     </SelectTrigger>
                     <SelectContent>
                       {productos?.map((producto: any) => (
@@ -195,19 +247,62 @@ export function OrdenFormModal({
                     </SelectContent>
                   </Select>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Cantidad"
-                      {...register(`items.${index}.cantidad`, { valueAsNumber: true, min: 1 })}
-                      className="text-xs"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Precio Unit"
-                      {...register(`items.${index}.precio_unit`, { valueAsNumber: true, min: 0 })}
-                      className="text-xs"
-                    />
+                  <div className={`grid gap-2 ${addDescuentoPct ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cantidad</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        {...register(`items.${index}.cantidad`, { valueAsNumber: true, min: 1 })}
+                        className="text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Precio Unit.</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        {...register(`items.${index}.precio_unit`, { valueAsNumber: true, min: 0 })}
+                        className="text-xs"
+                      />
+                    </div>
+                    {addDescuentoPct && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Desc. (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          {...register(`items.${index}.descuento_pct`, { 
+                            valueAsNumber: true,
+                            min: 0,
+                            max: 100
+                          })}
+                          className="text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Item Summary */}
+                  <div className="text-xs text-muted-foreground grid grid-cols-3 gap-1 pt-1">
+                    <div>
+                      <span>Subtotal: </span>
+                      <span>{watch("moneda")} {calculateItemSubtotal(watch(`items.${index}`)).toFixed(2)}</span>
+                    </div>
+                    {addDescuentoPct && (
+                      <div className="text-destructive">
+                        <span>Desc: </span>
+                        <span>-{watch("moneda")} {calculateItemDescuento(watch(`items.${index}`)).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="font-medium">
+                      <span>Total: </span>
+                      <span>{watch("moneda")} {calculateItemTotal(watch(`items.${index}`)).toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -217,7 +312,7 @@ export function OrdenFormModal({
                     variant="ghost"
                     size="icon"
                     onClick={() => remove(index)}
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -227,8 +322,21 @@ export function OrdenFormModal({
           </div>
         </div>
 
-        <div className="pt-2 border-t">
-          <div className="flex justify-between items-center text-lg font-semibold">
+        {/* Order Summary */}
+        <div className="pt-2 border-t space-y-2">
+          <div className="flex justify-between items-center">
+            <span>Subtotal:</span>
+            <span>{watch("moneda")} {calculateSubtotal().toFixed(2)}</span>
+          </div>
+          
+          {addDescuentoPct && (
+            <div className="flex justify-between items-center text-destructive">
+              <span>Descuento Total:</span>
+              <span>-{watch("moneda")} {calculateTotalDescuento().toFixed(2)}</span>
+            </div>
+          )}
+          
+          <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
             <span>Total:</span>
             <span>{watch("moneda")} {calculateTotal().toFixed(2)}</span>
           </div>

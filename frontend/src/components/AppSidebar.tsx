@@ -82,13 +82,13 @@ export function AppSidebar() {
   // Show only the current database items when collapsed
   const getCurrentDb = () => {
     return databases.find(db => 
-      db.items.some(item => location.pathname.startsWith(db.path))
+      db.items.some(() => location.pathname.startsWith(db.path))
     );
   };
 
-  const displayDatabases = isCollapsed 
-    ? (getCurrentDb() ? [getCurrentDb()] : [databases[0]])
-    : databases;
+  const displayDatabases = (isCollapsed 
+    ? [(getCurrentDb() || databases[0])]
+    : databases).filter((db): db is NonNullable<typeof db> => db !== undefined);
 
   return (
     <Sidebar collapsible="icon">

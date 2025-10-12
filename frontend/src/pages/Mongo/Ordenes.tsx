@@ -82,6 +82,10 @@ const MongoOrdenes = () => {
         onOpenChange={setIsFormOpen}
         onSubmit={(data) => createMutation.mutate(data)}
         dbType="mongo"
+        canales={["WEB", "TIENDA", "APP"]}
+        monedas={["CRC"]}
+        addDescuentoPct = {true}
+        extraInfo = {true}
       />
 
       <Card className="border-l-4 border-mongo">

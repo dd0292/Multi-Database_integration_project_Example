@@ -12,7 +12,7 @@ import api from "../../services/api";
 const MySQLLoader = () => {
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<any>(null);
-  const [isValidating, setIsValidating] = useState(false);
+  //const [isValidating, setIsValidating] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "complete">("idle");
 
@@ -23,6 +23,7 @@ const MySQLLoader = () => {
       setParsedData(data);
       toast.success(`File parsed: ${data.rows.length} rows found`);
     } catch (error) {
+      console.error("Error in MyComponent:", error);
       toast.error("Failed to parse file");
     }
   };
@@ -52,6 +53,7 @@ const MySQLLoader = () => {
       toast.success(`Successfully imported ${parsedData.rows.length} rows!`);
     } catch (error) {
       setUploadStatus("idle");
+      console.error("Error in MyComponent:", error);
       toast.error("Upload failed");
     }
   };
