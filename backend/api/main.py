@@ -7,16 +7,18 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
+BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
+BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8000"))
+FRONTEND_PORT = os.getenv("FRONTEND_PORT", "5173")
+FRONTEND_HOST = os.getenv("FRONTEND_URI", "localhost")
 
-FRONTEND_PORT = os.getenv("FRONTEND_PORT")
-FRONTEND_URI = os.getenv("FRONTEND_URI", "http://localhost:")
 
 
 app = FastAPI(title="Data Environment API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[f"{FRONTEND_URI}{FRONTEND_PORT}"],
+    allow_origins=[f"http://{FRONTEND_HOST}:{FRONTEND_PORT}"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,3 +35,12 @@ app.include_router(mongo_routes.router, prefix="/mongo", tags=["MongoDB"])
 @app.get("/")
 def root():
     return {"status": "API is running"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host=BACKEND_HOST,
+        port=BACKEND_PORT,
+        reload=True
+    )

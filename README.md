@@ -89,4 +89,53 @@ Make sure you have installed:
 - Power BI Desktop
 - Git
 
+## Technologies Used
+---
+### Backend
+- **FastAPI** - Modern Python web framework for building APIs
+- **Python** 3.13 - Programming language
+- **Multiple** Database Drivers:
+- **MongoDB** (PyMongo)
+- **MySQL** (MySQL Connector)
+- **Neo4j** (Neo4j Python Driver)
+- **Supabase** (Supabase Python Client)
+- **Docker** - Containerization
+- **Pydantic** - Data validation and settings management
+
+### Frontend
+- **React** - JavaScript library for building user interfaces
+- **Vite** - Frontend build tool and development server
+- **ESLint** - Code linting and quality
+- **Modern JavaScript (ES6+)** - Latest JavaScript features
+- **Axios** - HTTP client for API requests
+---
+
+# Setup
+## Backend
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+# Set up environment variables
+
+#-----------------------------
+# Run Backend
+#-----------------------------
+python run.py
+```
+
+## Fontend
+```bash
+cd frontend
+npm install
+
+#-----------------------------
+# Run Fontend
+#-----------------------------
+npm run dev  
+```
+
+
+
 

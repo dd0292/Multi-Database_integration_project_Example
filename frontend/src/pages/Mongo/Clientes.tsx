@@ -110,6 +110,10 @@ const MongoClientes = () => {
     },
   });
 
+  // ---------------------------------------------------------------------------------
+  // Mini-fuctions
+  // ---------------------------------------------------------------------------------
+
   const handleEdit = (cliente: MongoCliente) => {
     setEditingClient(cliente);
     setIsFormOpen(true);
@@ -139,6 +143,11 @@ const MongoClientes = () => {
   if (error) {
     toast.error("Error loading clients");
   }
+
+  // ---------------------------------------------------------------------------------
+  // Screen
+  // ---------------------------------------------------------------------------------
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-6 flex items-center justify-between">

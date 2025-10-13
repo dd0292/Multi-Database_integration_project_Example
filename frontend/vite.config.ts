@@ -11,6 +11,10 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    host: process.env.FRONTEND_HOST || 'localhost',
+    port: parseInt(process.env.FRONTEND_PORT!) || 5173,
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

@@ -1,8 +1,26 @@
 import axios from "axios";
 
-//const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
-const API_BASE_URL = "http://localhost:8000/";
+// Dynamic API Base URL configuration
+const getApiBaseUrl = (): string => {
+  const backendHost = import.meta.env.BACKEND_HOST || "localhost";
+  const backendPort = import.meta.env.BACKEND_PORT || "8000";
+  const environment = import.meta.env.ENV || "development";
 
+  if (environment === "production") {
+    return import.meta.env.VITE_API_URL || "https://your-production-domain.com/";
+  }
+
+  if (backendHost === "0.0.0.0" || backendHost === "127.0.0.1") {
+    return `http://localhost:${backendPort}/`;
+  }
+  
+  return `http://${backendHost}:${backendPort}/`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+console.log(`API Base URL: ${API_BASE_URL}`);
+console.log(`Environment: ${import.meta.env.VITE_ENV || "development"}`);
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
