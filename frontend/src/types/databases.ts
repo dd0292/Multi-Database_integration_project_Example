@@ -1,13 +1,14 @@
 // MongoDB Types
 export interface MongoCliente {
-  _id?: string;
+  id: string;
   nombre: string;
   email: string;
   genero: "Masculino" | "Femenino" | "Otro";
   pais: string;
-  preferencias?: {
-    canal?: string[];
-  };
+  preferencias?: Array<{
+    categoria: string;
+    texto: string;
+  }>;
   creado: string;
 }
 

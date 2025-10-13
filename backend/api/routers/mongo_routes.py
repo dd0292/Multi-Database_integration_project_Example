@@ -1,4 +1,4 @@
-from api.schemas.mongo import ClienteCreate, ClienteResponse
+from api.schemas.mongo import ClienteCreate, ClienteResponse, ClienteUpdate
 from fastapi import APIRouter, HTTPException, status
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -13,6 +13,10 @@ router = APIRouter()
 MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB = os.getenv("MONGO_DB", "sales_mongo") 
 
+#---------------------------------------------------------------------------------
+# Connection
+#---------------------------------------------------------------------------------
+
 try:
     client = pymongo.MongoClient(MONGO_URI)
     db = client[MONGO_DB]
@@ -26,15 +30,27 @@ except Exception as e:
     raise
 
 def cliente_helper(cliente) -> dict:
+    preferencias_array = []
+    if cliente.get("preferencias"):
+        for categoria, valores in cliente["preferencias"].items():
+            if isinstance(valores, list):
+                texto = ",".join(valores)
+            else:
+                texto = str(valores)
+            preferencias_array.append({
+                "categoria": categoria,
+                "texto": texto
+            })
+    
     return {
         "id": str(cliente["_id"]),
         "nombre": cliente["nombre"],
         "email": cliente["email"],
         "genero": cliente["genero"],
         "pais": cliente["pais"],
-        "creado": cliente["creado"]
+        "creado": cliente["creado"],
+        "preferencias": preferencias_array
     }
-
 #---------------------------------------------------------------------------------
 # Clientes
 #---------------------------------------------------------------------------------
@@ -93,8 +109,8 @@ def get_cliente(cliente_id: str):
             detail=f"Error fetching cliente: {str(e)}"
         )
 
-@router.put("/clientes/{cliente_id}", response_model=ClienteResponse)
-def update_cliente(cliente_id: str, cliente_update: ClienteCreate):
+@router.patch("/clientes/{cliente_id}", response_model=ClienteResponse)
+def update_cliente(cliente_id: str, cliente_update: ClienteUpdate):
     try:
         if not ObjectId.is_valid(cliente_id):
             raise HTTPException(status_code=400, detail="Invalid ID format")

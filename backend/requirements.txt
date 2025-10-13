@@ -11,3 +11,4 @@ pandas
 mlxtend
 requests
 python-dotenv
+email-validator

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { FormModal } from "../../components/common/FormModal";
 import { Button } from "../../components/ui/button";
@@ -5,6 +6,8 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
+import { Controller } from "react-hook-form";
+
 
 export interface ClienteFormData {
   nombre: string;
@@ -38,13 +41,20 @@ export function ClienteFormModal({
   generos,
   extraInfo = false,
 }: ClienteFormModalProps) {
-  const { register, handleSubmit, setValue, watch, reset, control, formState: { errors } } = useForm<ClienteFormData>({
-    defaultValues: initialData || {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    formState: { errors },
+  } = useForm<ClienteFormData>({
+    defaultValues: {
       nombre: "",
       email: "",
       genero: generos[0],
-      pais: "CR",
+      pais: PAISES[0],
       preferencias: [],
+      ...initialData, 
     },
   });
 
@@ -52,6 +62,26 @@ export function ClienteFormModal({
     control,
     name: "preferencias",
   });
+
+  useEffect(() => {
+    if (initialData) {
+      reset({
+        nombre: initialData.nombre || "",
+        email: initialData.email || "",
+        genero: initialData.genero || generos[0],
+        pais: initialData.pais || "CR",
+        preferencias: initialData.preferencias || [],
+      });
+    } else {
+      reset({
+        nombre: "",
+        email: "",
+        genero: generos[0],
+        pais: "CR",
+        preferencias: [],
+      });
+    }
+  }, [initialData, reset, generos]);
 
   const onFormSubmit = (data: ClienteFormData) => {
     onSubmit(data);
@@ -88,54 +118,65 @@ export function ClienteFormModal({
           <Input
             id="email"
             type="email"
-            {...register("email", { 
+            {...register("email", {
               required: "Email es requerido",
-              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Email inválido" }
+              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Email inválido" },
             })}
             placeholder="ejemplo@correo.com"
           />
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="genero">Género</Label>
-          <Select
-            value={watch("genero")}
-            onValueChange={(value) => setValue("genero", value)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {generos.map((g) => (
-                <SelectItem key={g} value={g}>
-                  {g}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="pais">País</Label>
-          <Select
-            value={watch("pais")}
-            onValueChange={(value) => setValue("pais", value)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAISES.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Dynamic Preferences Section */}
+        <Controller
+          control={control}
+          name="genero"
+          defaultValue={generos[0]}
+          render={({ field }) => (
+            <div className="space-y-2">
+              <Label htmlFor="genero">Género</Label>
+              <Select
+                value={field.value}
+                onValueChange={(val) => field.onChange(val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={initialData?.genero || generos[0]} />
+                </SelectTrigger>
+                <SelectContent>
+                  {generos.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {g}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        />
+        <Controller
+          control={control}
+          name="pais"
+          defaultValue={PAISES[0]}
+          render={({ field }) => (
+            <div className="space-y-2">
+              <Label htmlFor="pais">País</Label>
+              <Select
+                value={field.value}
+                onValueChange={(val) => field.onChange(val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder= {initialData?.pais || PAISES[0]} />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAISES.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        />        
         {extraInfo && (
           <div className="space-y-4 border-t pt-4">
             <div className="flex items-center justify-between">
