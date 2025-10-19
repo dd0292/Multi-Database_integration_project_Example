@@ -234,7 +234,7 @@ CREATE TABLE DW_SALES.dbo.TC_Staging (
 );
 
 BULK INSERT #TC_Staging
-FROM 'C:\mssql\files\TIPOS_DE_CAMBIO.csv'
+FROM '<YOUR PATH>\TIPOS_DE_CAMBIO.csv'
 WITH (
     FIRSTROW = 2,
     FIELDTERMINATOR = ',',
@@ -371,7 +371,7 @@ GO
 
 DECLARE @json NVARCHAR(MAX);
 SELECT @json = BulkColumn
-FROM OPENROWSET(BULK 'C:\mssql\files\AGG_VENTAS_USD.json', SINGLE_CLOB) AS j;
+FROM OPENROWSET(BULK '<YOUR PATH>\AGG_VENTAS_USD.json', SINGLE_CLOB) AS j;
 
 -- Expand JSON: year, month, and each internal sale
 SELECT 
