@@ -120,7 +120,7 @@ pip install -r requirements.txt
 # Set up environment variables
 
 #-----------------------------
-# Run Backend
+# Run Backend (local)
 #-----------------------------
 python run.py
 ```
@@ -131,7 +131,7 @@ cd frontend
 npm install
 
 #-----------------------------
-# Run Fontend
+# Run Fontend (local)
 #-----------------------------
 npm run dev  
 ```
