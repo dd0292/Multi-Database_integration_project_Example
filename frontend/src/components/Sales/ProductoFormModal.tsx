@@ -7,7 +7,7 @@ import { Label } from "../../components/ui/label";
 interface ProductoFormData {
   nombre: string;
   categoria: string;
-  codigo?: string;
+  codigo: string;
   categoriasAdicionales?: Record<string, string>;
 }
 
@@ -18,7 +18,7 @@ interface ProductoFormModalProps {
   dbType: "mongo" | "mssql" | "mysql" | "supabase" | "neo4j";
   initialData?: Partial<ProductoFormData>;
   codeNeeded?: boolean;
-  extraInfo?: boolean;
+  extraCodes?: boolean;
   tiposCategorias?: string[];
 }
 
@@ -29,7 +29,7 @@ export function ProductoFormModal({
   dbType,
   initialData,
   codeNeeded = true,
-  extraInfo = false,
+  extraCodes: extraInfo = false,
   tiposCategorias = [],
 }: ProductoFormModalProps) {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProductoFormData>({
@@ -95,9 +95,10 @@ export function ProductoFormModal({
             <Label htmlFor="codigo">{getCodigoLabel()}</Label>
             <Input
               id="codigo"
-              {...register("codigo")}
+              {...register("codigo", { required: "Codigo es requerida" })}
               placeholder={`Ej: ${dbType === "mssql" ? "SKU-1001" : "ALT-AB12"}`}
             />
+          {errors.categoria && <p className="text-sm text-destructive">{errors.codigo?.message}</p>}
           </div>
         )}
 

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { FormModal } from "../../components/common/FormModal";
 import { Button } from "../../components/ui/button";
@@ -47,12 +47,19 @@ export function OrdenFormModal({
   addDescuentoPct = false,
   extraInfo = false
 }: OrdenFormModalProps) {
-  const { register, handleSubmit, setValue, watch, control, reset, formState: { errors } } = useForm<OrdenFormData>({
+  const { 
+    register, 
+    handleSubmit, 
+    control, 
+    reset, 
+    watch,
+    formState: { errors } 
+  } = useForm<OrdenFormData>({
     defaultValues: {
       cliente_id: "",
       fecha: new Date().toISOString().split("T")[0],
-      canal: canales[0],
-      moneda: monedas[0],
+      canal: canales[0] || "",
+      moneda: monedas[0] || "",
       items: [{ producto_id: "", cantidad: 1, precio_unit: 0, descuento_pct: 0 }],
       descripcion: "",
     },
@@ -62,6 +69,10 @@ export function OrdenFormModal({
     control,
     name: "items",
   });
+
+  // Watch the entire items array for calculations
+  const watchedItems = watch("items");
+  const watchedMoneda = watch("moneda");
 
   const { data: clientes } = useQuery({
     queryKey: [`${dbType}-clientes`],
@@ -97,18 +108,15 @@ export function OrdenFormModal({
   };
 
   const calculateSubtotal = () => {
-    const items = watch("items");
-    return items.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
+    return watchedItems.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
   };
 
   const calculateTotalDescuento = () => {
-    const items = watch("items");
-    return items.reduce((sum, item) => sum + calculateItemDescuento(item), 0);
+    return watchedItems.reduce((sum, item) => sum + calculateItemDescuento(item), 0);
   };
 
   const calculateTotal = () => {
-    const items = watch("items");
-    return items.reduce((sum, item) => sum + calculateItemTotal(item), 0);
+    return watchedItems.reduce((sum, item) => sum + calculateItemTotal(item), 0);
   };
 
   const onFormSubmit = (data: OrdenFormData) => {
@@ -131,27 +139,39 @@ export function OrdenFormModal({
       description={`Crear una nueva orden en ${dbType.toUpperCase()}`}
     >
       <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+        {/* Cliente - Using Controller */}
         <div className="space-y-2">
           <Label htmlFor="cliente_id">Cliente</Label>
-          <Select
-            value={watch("cliente_id")}
-            onValueChange={(value) => setValue("cliente_id", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              {clientes?.map((cliente: any) => (
-                <SelectItem key={cliente._id || cliente.id || cliente.ClienteId || cliente.cliente_id} value={String(cliente._id || cliente.id || cliente.ClienteId || cliente.cliente_id)}>
-                  {cliente.nombre || cliente.Nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="cliente_id"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={field.onChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clientes?.map((cliente: any) => (
+                    <SelectItem 
+                      key={cliente._id || cliente.id || cliente.ClienteId || cliente.cliente_id} 
+                      value={String(cliente._id || cliente.id || cliente.ClienteId || cliente.cliente_id)}
+                    >
+                      {cliente.nombre || cliente.Nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           {errors.cliente_id && <p className="text-sm text-destructive">Cliente es requerido</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
+          {/* Fecha */}
           <div className="space-y-2">
             <Label htmlFor="fecha">Fecha</Label>
             <Input
@@ -161,43 +181,57 @@ export function OrdenFormModal({
             />
           </div>
 
+          {/* Canal - Using Controller */}
           <div className="space-y-2">
             <Label htmlFor="canal">Canal</Label>
-            <Select
-              value={watch("canal")}
-              onValueChange={(value) => setValue("canal", value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {canales.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              name="canal"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {canales.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
         </div>
 
+        {/* Moneda - Using Controller */}
         <div className="space-y-2">
           <Label htmlFor="moneda">Moneda</Label>
-          <Select
-            value={watch("moneda")}
-            onValueChange={(value) => setValue("moneda", value)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {monedas.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="moneda"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={field.onChange}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monedas.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
         </div>
 
         {/* Extra Info - Description */}
@@ -213,6 +247,7 @@ export function OrdenFormModal({
           </div>
         )}
 
+        {/* Items Section */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Items</Label>
@@ -231,21 +266,31 @@ export function OrdenFormModal({
             {fields.map((field, index) => (
               <div key={field.id} className="flex gap-2 items-start p-3 border rounded-lg">
                 <div className="flex-1 space-y-2">
-                  <Select
-                    value={watch(`items.${index}.producto_id`)}
-                    onValueChange={(value) => setValue(`items.${index}.producto_id`, value)}
-                  >
-                    <SelectTrigger className="text-xs">
-                      <SelectValue placeholder="Seleccionar producto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {productos?.map((producto: any) => (
-                        <SelectItem key={producto._id || producto.id || producto.ProductoId || producto.producto_id} value={String(producto._id || producto.id || producto.ProductoId || producto.producto_id)}>
-                          {producto.nombre || producto.Nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* Producto - Using Controller for each item */}
+                  <Controller
+                    name={`items.${index}.producto_id`}
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger className="text-xs">
+                          <SelectValue placeholder="Seleccionar producto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {productos?.map((producto: any) => (
+                            <SelectItem 
+                              key={producto._id || producto.id || producto.ProductoId || producto.producto_id} 
+                              value={String(producto._id || producto.id || producto.ProductoId || producto.producto_id)}
+                            >
+                              {producto.nombre || producto.Nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
 
                   <div className={`grid gap-2 ${addDescuentoPct ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <div className="space-y-1">
@@ -253,7 +298,10 @@ export function OrdenFormModal({
                       <Input
                         type="number"
                         min="1"
-                        {...register(`items.${index}.cantidad`, { valueAsNumber: true, min: 1 })}
+                        {...register(`items.${index}.cantidad`, { 
+                          valueAsNumber: true, 
+                          min: 1 
+                        })}
                         className="text-xs"
                       />
                     </div>
@@ -263,7 +311,10 @@ export function OrdenFormModal({
                         type="number"
                         min="0"
                         step="0.01"
-                        {...register(`items.${index}.precio_unit`, { valueAsNumber: true, min: 0 })}
+                        {...register(`items.${index}.precio_unit`, { 
+                          valueAsNumber: true, 
+                          min: 0 
+                        })}
                         className="text-xs"
                       />
                     </div>
@@ -291,17 +342,17 @@ export function OrdenFormModal({
                   <div className="text-xs text-muted-foreground grid grid-cols-3 gap-1 pt-1">
                     <div>
                       <span>Subtotal: </span>
-                      <span>{watch("moneda")} {calculateItemSubtotal(watch(`items.${index}`)).toFixed(2)}</span>
+                      <span>{watchedMoneda} {calculateItemSubtotal(watchedItems[index]).toFixed(2)}</span>
                     </div>
                     {addDescuentoPct && (
                       <div className="text-destructive">
                         <span>Desc: </span>
-                        <span>-{watch("moneda")} {calculateItemDescuento(watch(`items.${index}`)).toFixed(2)}</span>
+                        <span>-{watchedMoneda} {calculateItemDescuento(watchedItems[index]).toFixed(2)}</span>
                       </div>
                     )}
                     <div className="font-medium">
                       <span>Total: </span>
-                      <span>{watch("moneda")} {calculateItemTotal(watch(`items.${index}`)).toFixed(2)}</span>
+                      <span>{watchedMoneda} {calculateItemTotal(watchedItems[index]).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -326,19 +377,19 @@ export function OrdenFormModal({
         <div className="pt-2 border-t space-y-2">
           <div className="flex justify-between items-center">
             <span>Subtotal:</span>
-            <span>{watch("moneda")} {calculateSubtotal().toFixed(2)}</span>
+            <span>{watchedMoneda} {calculateSubtotal().toFixed(2)}</span>
           </div>
           
           {addDescuentoPct && (
             <div className="flex justify-between items-center text-destructive">
               <span>Descuento Total:</span>
-              <span>-{watch("moneda")} {calculateTotalDescuento().toFixed(2)}</span>
+              <span>-{watchedMoneda} {calculateTotalDescuento().toFixed(2)}</span>
             </div>
           )}
           
           <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
             <span>Total:</span>
-            <span>{watch("moneda")} {calculateTotal().toFixed(2)}</span>
+            <span>{watchedMoneda} {calculateTotal().toFixed(2)}</span>
           </div>
         </div>
 

@@ -27,7 +27,7 @@ interface ClienteFormModalProps {
   dbType: "mongo" | "mssql" | "mysql" | "supabase" | "neo4j";
   initialData?: Partial<ClienteFormData>;
   generos: Array<string>;
-  extraInfo?: boolean;
+  addPreferencias?: boolean;
 }
 
 const PAISES = ["CR", "GT", "SV", "HN", "NI", "PA", "BZ", "US"];
@@ -39,7 +39,7 @@ export function ClienteFormModal({
   dbType,
   initialData,
   generos,
-  extraInfo = false,
+  addPreferencias: extraInfo = false,
 }: ClienteFormModalProps) {
   const {
     register,
@@ -219,7 +219,7 @@ export function ClienteFormModal({
                         <Input
                           id={`preferencias.${index}.texto`}
                           {...register(`preferencias.${index}.texto` as const)}
-                          placeholder="Ej: Email, WhatsApp, etc."
+                          placeholder="Ej: WEB, TIENDA, etc."
                         />
                       </div>
                     </div>

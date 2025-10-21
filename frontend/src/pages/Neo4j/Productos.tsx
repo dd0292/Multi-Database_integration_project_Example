@@ -63,7 +63,7 @@ const Neo4jProductos = () => {
         onOpenChange={setIsFormOpen}
         onSubmit={(data) => createMutation.mutate(data)}
         dbType="neo4j"
-        extraInfo={true}
+        extraCodes={true}
         tiposCategorias={["Codigo Alt", "Codigo Mongo"]}
       />
 

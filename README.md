@@ -12,6 +12,76 @@ By.:
 
 Each contains Customers, Products, Orders, and Order Details with inconsistent formats (currencies, IDs, date formats, and codes). This project unifies all of them into a central Data Warehouse (DW) in MS SQL Server using an ETL process and provides web apps and dashboards for analytics and visualization.
 
+## Datewarehouse diagram
+```mermaid
+erDiagram
+    DimTiempo {
+        int TiempoID PK "YYYYMMDD"
+        date FechaCompleta UK
+        int Dia
+        int Mes
+        int Trimestre
+        int Año
+        nvarchar NombreMes
+        nvarchar NombreDiaSemana
+        int DiaSemana
+        bit EsFinDeSemana
+        nvarchar MesAño
+        datetime2 FechaCreacion
+    }
+
+    DimCliente {
+        int ClienteID PK
+        nvarchar ClienteID_Natural
+        nvarchar Nombre
+        nvarchar Email
+        nvarchar Genero
+        nvarchar Pais
+        date FechaRegistro
+        nvarchar FuenteOrigen
+        datetime2 FechaCreacion
+        datetime2 FechaActualizacion
+    }
+
+    DimProducto {
+        int ProductoID PK
+        nvarchar SKU_Oficial UK
+        nvarchar Nombre
+        nvarchar Categoria
+        nvarchar FuenteOrigen
+        datetime2 FechaCreacion
+        datetime2 FechaActualizacion
+    }
+
+    DimCanal {
+        int CanalID PK
+        nvarchar NombreCanal UK
+        nvarchar Descripcion
+        datetime2 FechaCreacion
+    }
+
+    FactVentas {
+        bigint VentaID PK
+        int TiempoID FK
+        int ClienteID FK
+        int ProductoID FK
+        int CanalID FK
+        nvarchar OrdenID_Natural
+        char MonedaOrigen
+        decimal TotalVentaUSD
+        int Cantidad
+        decimal PrecioUnitUSD
+        decimal DescuentoPct
+        nvarchar FuenteOrigen
+        datetime2 FechaCreacion
+    }
+
+    FactVentas }o--|| DimTiempo : "tiempo"
+    FactVentas }o--|| DimCliente : "cliente"
+    FactVentas }o--|| DimProducto : "producto"
+    FactVentas }o--|| DimCanal : "canal"
+```
+
 ## Repository Structure
 ``` bash
 data-environment-project/

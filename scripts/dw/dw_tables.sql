@@ -55,6 +55,7 @@ CREATE TABLE dwh.DimTiempo (
     DiaSemana INT NOT NULL CHECK (DiaSemana BETWEEN 1 AND 7),
     EsFinDeSemana BIT NOT NULL,                     -- 1 = Fin de semana, 0 = Día laboral
     MesAño NVARCHAR(7) NOT NULL,                    -- Formato 'YYYY-MM'
+    -- TipoCambio DECIMAL(10,4) NULL,                  -- Tasa usada si la moneda era CRC
     FechaCreacion DATETIME2 DEFAULT GETDATE()
 );
 
@@ -83,7 +84,6 @@ CREATE TABLE dwh.FactVentas (
     Cantidad INT NOT NULL CHECK (Cantidad > 0),
     PrecioUnitUSD DECIMAL(18,2) NOT NULL,
     DescuentoPct DECIMAL(5,2) NULL CHECK (DescuentoPct BETWEEN 0 AND 100),
-    TipoCambio DECIMAL(10,4) NULL,                  -- Tasa usada si la moneda era CRC
     FuenteOrigen NVARCHAR(20) NOT NULL,
     FechaCreacion DATETIME2 DEFAULT GETDATE()
 );

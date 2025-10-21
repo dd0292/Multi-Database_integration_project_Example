@@ -168,7 +168,7 @@ const MongoClientes = () => {
         onSubmit={handleFormSubmit}
         dbType="mongo"
         generos={["Masculino", "Femenino", "Otro"]}
-        extraInfo={true}
+        addPreferencias={true}
         initialData={editingClient ? {
           nombre: editingClient.nombre,
           email: editingClient.email,

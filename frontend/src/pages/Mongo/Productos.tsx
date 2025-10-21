@@ -64,7 +64,7 @@ const MongoProductos = () => {
         onOpenChange={setIsFormOpen}
         onSubmit={(data) => createMutation.mutate(data)}
         dbType="mongo"
-        extraInfo={true}
+        extraCodes={true}
         tiposCategorias={["SKU","Codigo Alt"]}
       />
 
