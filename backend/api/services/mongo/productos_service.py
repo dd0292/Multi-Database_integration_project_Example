@@ -15,9 +15,9 @@ class ProductoService:
         producto_dict["creado"] = datetime.now()
         
         # Handle categoriasAdicionales transformation
-        categorias_adicionales = producto_dict.pop("categoriasAdicionales", None)
+        categorias_adicionales = producto_dict.pop("equivalencias", None)
         if categorias_adicionales:
-            producto_dict["categorias_adicionales"] = categorias_adicionales
+            producto_dict["equivalencias"] = categorias_adicionales
         
         result = self.collection.insert_one(producto_dict)
         created_producto = self.collection.find_one({"_id": result.inserted_id})
@@ -137,9 +137,7 @@ class ProductoService:
             "nombre": producto["nombre"],
             "categoria": producto["categoria"],
             "equivalencias": {
-                "sku": producto.get("sku"),
-                "codigo_alt": producto.get("codigo_alt")
-            } if producto.get("sku") or producto.get("codigo_alt") else None,
-            "categorias_adicionales": producto.get("categorias_adicionales"),
-            "creado": producto.get("creado", datetime.now())
+                "sku": producto["equivalencias"].get("sku"),
+                "codigo_alt": producto["equivalencias"].get("codigo_alt")
+            } if producto["categoria"] else None
         }

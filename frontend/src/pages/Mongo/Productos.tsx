@@ -63,12 +63,19 @@ const MongoProductos = () => {
       </div>
 
       <ProductoFormModal
+        key={editingClient?.id ?? "new"} 
         open={isFormOpen}
         onOpenChange={handleFormOpenChange}
         onSubmit={onFormSubmit}
         dbType="mongo"
         extraCodes={true}
-        tiposCategorias={["SKU","Codigo Alt"]}
+        tiposCategorias={["sku","codigo_alt"]}
+        initialData={editingClient ? {
+          nombre: editingClient.nombre,
+          categoria: editingClient.categoria,
+          codigo: editingClient.codigo_mongo,
+          categoriasAdicionales: editingClient.equivalencias
+        } : undefined}
       />
 
       <Card className="border-l-4 border-mongo">
@@ -88,14 +95,34 @@ const MongoProductos = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {data.data.map((producto) => (
                 <Card key={producto.id} className="p-4 hover:shadow-md transition-shadow">
-                  <div>
+                  <div >
                     <div className="flex items-start justify-between mb-2">
                       <Package className="h-8 w-8 text-mongo" />
-                      <span className="text-xs px-2 py-1 bg-mongo-light text-mongo-dark rounded font-mono">
+                      <div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(producto)}
+                            disabled={updateMutation.isPending}
+                          >
+                          <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => onDelete(producto)}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <h3 className="font-semibold text-lg mb-1">{producto.nombre}</h3>
+                      <span className="text-x px-2 py-1 bg-mongo-light text-mongo-dark rounded font-mono">
                         {producto.codigo_mongo}
                       </span>
                     </div>
-                    <h3 className="font-semibold text-lg mb-1">{producto.nombre}</h3>
                     <p className="text-sm text-muted-foreground mb-3">{producto.categoria}</p>
                     {producto.equivalencias && (
                       <div className="text-xs space-y-1">
@@ -113,22 +140,6 @@ const MongoProductos = () => {
                         )}
                       </div>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(producto)}
-                      disabled={updateMutation.isPending}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => onDelete(producto)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 </Card>
               ))}

@@ -17,7 +17,7 @@ class ProductoFormData(BaseModel):
     nombre: str = Field(..., min_length=1, description="Nombre del producto")
     categoria: str = Field(..., min_length=1, description="Categoría principal del producto")
     codigo: str = Field(..., min_length=1, description="Código único del producto")
-    categoriasAdicionales: Optional[Dict[str, str]] = Field(None,description="Categorías adicionales como clave-valor")
+    equivalencias: Optional[Dict[str, str]] = Field(None,description="Categorías adicionales como clave-valor")
 
 # OrdenItem Model
 class OrdenItem(BaseModel):

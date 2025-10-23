@@ -13,7 +13,7 @@ export interface MongoProducto {
 
 export const productoFormToPayload = (data: ProductoFormData) => ({
   nombre: data.nombre,
-  codigo_mongo: data.codigo,
+  codigo: data.codigo,
   categoria: data.categoria,
   equivalencias: data.categoriasAdicionales
 });
