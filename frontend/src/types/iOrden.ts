@@ -24,4 +24,5 @@ export interface OrdenFormModalProps {
   canales: Array<string>;
   addDescuentoPct?: boolean;
   extraInfo?: boolean;
+  initialData?: Partial<OrdenFormData>;
 }

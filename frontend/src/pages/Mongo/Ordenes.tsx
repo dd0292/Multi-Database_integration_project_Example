@@ -1,4 +1,4 @@
-import { Edit, Plus, ShoppingCart } from "lucide-react";
+import { Edit, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
@@ -85,6 +85,7 @@ const MongoOrdenes = () => {
       </div>
 
       <OrdenFormModal
+        key={editingClient?.id ?? "new"} 
         open={isFormOpen}
         onOpenChange={handleFormOpenChange}
         onSubmit={onFormSubmit}
@@ -93,6 +94,7 @@ const MongoOrdenes = () => {
         monedas={["CRC"]}
         addDescuentoPct = {true}
         extraInfo = {true}
+        initialData={editingClient!}
       />
 
       <Card className="border-l-4 border-mongo">
@@ -162,7 +164,9 @@ const MongoOrdenes = () => {
                     size="sm"
                     onClick={() => onDelete(orden)}
                     disabled={deleteMutation.isPending}
-                  ></Button>
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </Card>
               ))}
             </div>

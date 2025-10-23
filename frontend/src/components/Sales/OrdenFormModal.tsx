@@ -19,7 +19,8 @@ export function OrdenFormModal({
   monedas,
   canales,
   addDescuentoPct = false,
-  extraInfo = false
+  extraInfo = false,
+  initialData
 }: OrdenFormModalProps) {
   const { 
     register, 
@@ -30,7 +31,7 @@ export function OrdenFormModal({
     setValue,
     formState: { errors } 
   } = useForm<OrdenFormData>({
-    defaultValues: {
+    defaultValues: initialData || {
       cliente_id: "",
       fecha: new Date().toISOString().split("T")[0],
       canal: canales[0] || "",
