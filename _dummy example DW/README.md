@@ -1,9 +1,15 @@
 # Dummy DataWarehouse 
+Realizado por: 
+ - David Chaves Mena
+ - Sergio Zúñiga Castillo
+ - Igancio Madriz Ortiz
+ - Rachel Leiva
+ - Rodrigo Donoso
 
-- **Model:** STAR (simple and clear for this exercise).
-- **Fact:** Fact_Sales (one row per document line: OINV/ORIN/aggregated JSON).
-- **Currencies:** We will maintain amounts in CRC (colons) and USD; exchange rates are provided in CSV TIPOS_DE_CAMBIO (Date, - TipoCambio_USD_CRC; using a CSV is easier).
-- **Credit notes:** These are loaded as negative values ​​(use a -1 sign).
+---
+- **Modelo:** STAR.
+- **FactTable:** Fact_Sales (Una fila por linea del doc: OINV/ORIN/aggregated JSON).
+- **Currencies:** Se utilizan los tipos de cambio del csv y se pone uno en cada línea de DimDate
 - **AGG_VENTAS_USD (JSON):** Create a generic AGGREGATE customer.
 
 ## Mermaind
@@ -73,12 +79,12 @@ erDiagram
 
 ## Step by step
 
-### 0. Prerequisites
+### 0. Debe instalarse:
 - Install and open SQL Server Management Studio (SSMS).
 - Ensure the CSV and JSON files are accessible to the SQL Server instance.
 
 
-### 1. Restaurar DB_SALES (.bak)
+### 1. Cargar DB_SALES (.bak) por código (también se puede mediante SSMS)
 
 You can follow this video "[How to Import Database .BAK file in SSMS](https://youtu.be/zf6NdLKpo08)" with the backup file (.bak), or do it manually by:
 ```sql 
@@ -92,9 +98,7 @@ WITH
 GO
 ```
 
-### 2. Update dates (add 4 years)
-
-The OINV and ORIN tables are in 2020, therefore they must be moved to 2024 (adding 4 years):
+### 2. Sumar los 4 años a dates (2020->2024)
 
 ```sql
 USE DB_SALES;
@@ -124,7 +128,7 @@ COMMIT TRANSACTION;
 GO
 ```
 
-### 3. Create/Plan the Datawarehouse (STAR Schema)
+### 3. Datawarehouse (STAR Schema)
 
 ```sql
 -- Create DW
@@ -195,7 +199,7 @@ CREATE INDEX IX_FactSales_Customer ON Fact_Sales(CustomerKey);
 GO
 ```
 
-### 4. Add Dimensiones
+### 4. Agregar Dimensiones
 
 #### 4.1 DimDate
 
@@ -308,7 +312,7 @@ VALUES ('COL','Colones'),
 GO
 ```
 
-### 5. Facts with DB_SALES
+### 5. Tabla de Facts
 From (OINV + INV1)
 ```sql
 USE DW_SALES;
@@ -362,7 +366,7 @@ CROSS JOIN (SELECT CustomerKey FROM DimCustomer WHERE CardCode = 'AGG000') AS ag
 GO
 ```
 
-### 7. Facts with AGG_VENTAS_USD JSON
+### 6. Facts with AGG_VENTAS_USD JSON
 
 Add json file
 ```sql
