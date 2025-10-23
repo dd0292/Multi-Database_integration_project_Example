@@ -9,33 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../../components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import api from "../../services/api";
-
-interface OrdenItem {
-  producto_id: string;
-  cantidad: number;
-  precio_unit: number;
-  descuento_pct?: number;
-}
-
-interface OrdenFormData {
-  cliente_id: string;
-  fecha: string;
-  canal: string;
-  moneda: string;
-  items: OrdenItem[];
-  descripcion?: string;
-}
-
-interface OrdenFormModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (data: OrdenFormData) => void;
-  dbType: "mongo" | "mssql" | "mysql" | "supabase" | "neo4j";
-  monedas: Array<string>;
-  canales: Array<string>;
-  addDescuentoPct?: boolean;
-  extraInfo?: boolean;
-}
+import type { OrdenFormData, OrdenFormModalProps, OrdenItem } from "../../types/iOrden";
 
 export function OrdenFormModal({
   open,
@@ -53,6 +27,7 @@ export function OrdenFormModal({
     control, 
     reset, 
     watch,
+    setValue,
     formState: { errors } 
   } = useForm<OrdenFormData>({
     defaultValues: {
@@ -62,6 +37,7 @@ export function OrdenFormModal({
       moneda: monedas[0] || "",
       items: [{ producto_id: "", cantidad: 1, precio_unit: 0, descuento_pct: 0 }],
       descripcion: "",
+      total: 0
     },
   });
 
@@ -116,11 +92,19 @@ export function OrdenFormModal({
   };
 
   const calculateTotal = () => {
-    return watchedItems.reduce((sum, item) => sum + calculateItemTotal(item), 0);
+    const total = watchedItems.reduce((sum, item) => sum + calculateItemTotal(item), 0);
+    // Update the form value for total
+    setValue("total", parseFloat(total.toFixed(2)));
+    return total;
   };
 
   const onFormSubmit = (data: OrdenFormData) => {
-    onSubmit(data);
+    // Ensure total is calculated and included
+    const finalData = {
+      ...data,
+      total: calculateTotal()
+    };
+    onSubmit(finalData);
     reset();
   };
 
@@ -392,6 +376,9 @@ export function OrdenFormModal({
             <span>{watchedMoneda} {calculateTotal().toFixed(2)}</span>
           </div>
         </div>
+
+        {/* Hidden total field that gets submitted with the form */}
+        <input type="hidden" {...register("total")} />
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

@@ -7,28 +7,7 @@ import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import { Controller } from "react-hook-form";
-
-
-export interface ClienteFormData {
-  nombre: string;
-  email: string;
-  genero: string;
-  pais: string;
-  preferencias?: Array<{
-    categoria: string;
-    texto: string;
-  }>;
-}
-
-interface ClienteFormModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (data: ClienteFormData) => void;
-  dbType: "mongo" | "mssql" | "mysql" | "supabase" | "neo4j";
-  initialData?: Partial<ClienteFormData>;
-  generos: Array<string>;
-  addPreferencias?: boolean;
-}
+import type { ClienteFormData, ClienteFormModalProps } from "../../types/iCliente";
 
 const PAISES = ["CR", "GT", "SV", "HN", "NI", "PA", "BZ", "US"];
 

@@ -12,3 +12,5 @@ mlxtend
 requests
 python-dotenv
 email-validator
+polars
+pylint

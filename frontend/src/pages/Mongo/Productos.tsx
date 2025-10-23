@@ -1,49 +1,52 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Package } from "lucide-react";
+import { Plus, Package, Trash2, Edit } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { ProductoFormModal } from "../../components/Sales/ProductoFormModal";
+import { ProductoFormModal, } from "../../components/Sales/ProductoFormModal";
 import { toast } from "sonner";
-import api from "../../services/api";
-import type { MongoProducto } from "../../types/databases";
+import { useCrudOperations } from "../../hooks/useCrudOperations";
+import type { ProductoFormData } from "../../types/iProducto";
+import { useFormHandler } from "../../hooks/useFormHandler";
+import { productoFormToPayload, type MongoProducto } from "../../types/Mongo/Producto";
 
 const MongoProductos = () => {
-  const [page] = useState(1);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const limit = 20;
-  const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["mongo-productos", page],
-    queryFn: async () => {
-      const response = await api.get<{ data: MongoProducto[]; total: number }>(
-        `/mongo/productos?page=${page}&limit=${limit}`
-      );
-      return response.data;
-    },
+  const {
+    data,
+    isLoading,
+    error,
+    createMutation,
+    updateMutation,
+    deleteMutation,
+  } = useCrudOperations<MongoProducto, ProductoFormData>({
+    endpoint: "/mongo/productos",
+    queryKey: "mongo-productos",
+    formToPayload: productoFormToPayload,
+    onSuccessMessage: "Cliente procesado exitosamente"
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return api.post("/mongo/productos", {
-        codigo_mongo: data.codigo,
-        nombre: data.nombre,
-        categoria: data.categoria,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mongo-productos"] });
-      toast.success("Producto creado exitosamente");
-      setIsFormOpen(false);
-    },
-    onError: () => {
-      toast.error("Error al crear producto");
-    },
-  });
+  const {
+    isFormOpen,
+    editingItem: editingClient,
+    handleEdit,
+    handleDelete,
+    handleFormOpenChange,
+    handleFormSubmit,
+  } = useFormHandler<MongoProducto>();
+
+  const onFormSubmit = (data: ProductoFormData) => {
+    handleFormSubmit(
+      data,
+      editingClient,
+      createMutation.mutate,
+      (id, data) => updateMutation.mutate({ id, data })
+    );
+  };
+  const onDelete = (cliente: MongoProducto) => {
+    handleDelete(cliente, deleteMutation.mutate);
+  };
 
   if (error) {
-    toast.error("Error loading products");
+    toast.error("Error loading clients");
   }
 
   return (
@@ -53,7 +56,7 @@ const MongoProductos = () => {
           <h1 className="text-3xl font-bold text-mongo">MongoDB Productos</h1>
           <p className="text-muted-foreground mt-1">Manage product catalog in MongoDB</p>
         </div>
-        <Button className="bg-mongo hover:bg-mongo-dark" onClick={() => setIsFormOpen(true)}>
+        <Button className="bg-mongo hover:bg-mongo-dark" onClick={() => handleFormOpenChange(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Product
         </Button>
@@ -61,8 +64,8 @@ const MongoProductos = () => {
 
       <ProductoFormModal
         open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        onSubmit={(data) => createMutation.mutate(data)}
+        onOpenChange={handleFormOpenChange}
+        onSubmit={onFormSubmit}
         dbType="mongo"
         extraCodes={true}
         tiposCategorias={["SKU","Codigo Alt"]}
@@ -84,7 +87,7 @@ const MongoProductos = () => {
           ) : data?.data && data.data.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {data.data.map((producto) => (
-                <Card key={producto._id} className="p-4 hover:shadow-md transition-shadow">
+                <Card key={producto.id} className="p-4 hover:shadow-md transition-shadow">
                   <div>
                     <div className="flex items-start justify-between mb-2">
                       <Package className="h-8 w-8 text-mongo" />
@@ -110,6 +113,22 @@ const MongoProductos = () => {
                         )}
                       </div>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(producto)}
+                      disabled={updateMutation.isPending}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => onDelete(producto)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </Card>
               ))}

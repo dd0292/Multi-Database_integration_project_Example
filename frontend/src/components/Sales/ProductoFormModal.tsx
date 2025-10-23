@@ -3,24 +3,7 @@ import { FormModal } from "../../components/common/FormModal";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-
-interface ProductoFormData {
-  nombre: string;
-  categoria: string;
-  codigo: string;
-  categoriasAdicionales?: Record<string, string>;
-}
-
-interface ProductoFormModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (data: ProductoFormData) => void;
-  dbType: "mongo" | "mssql" | "mysql" | "supabase" | "neo4j";
-  initialData?: Partial<ProductoFormData>;
-  codeNeeded?: boolean;
-  extraCodes?: boolean;
-  tiposCategorias?: string[];
-}
+import type { ProductoFormData, ProductoFormModalProps } from "../../types/iProducto";
 
 export function ProductoFormModal({
   open,

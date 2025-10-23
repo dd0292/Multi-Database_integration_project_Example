@@ -1,153 +1,53 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { ClienteFormModal, type ClienteFormData } from "../../components/Sales/ClienteFormModal";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { MongoCliente } from "../../types/databases";
+import { ClienteFormModal, } from "../../components/Sales/ClienteFormModal";
 import { Button } from "../../components/ui/button";
-import { convertPreferenciasToDict } from "../../utils/preferenciasConverter";
 import { Plus, Trash2, Edit } from "lucide-react";
-import api from "../../services/api";
-import { AxiosError } from "axios";
-import { useState } from "react";
 import { toast } from "sonner";
+import { useCrudOperations } from "../../hooks/useCrudOperations";
+import { useFormHandler } from "../../hooks/useFormHandler";
+import { clienteFormToPayload, type MongoCliente } from "../../types/Mongo/Cliente";
+import type { ClienteFormData } from "../../types/iCliente";
 
 const MongoClientes = () => {
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState<MongoCliente | null>(null);
-  const queryClient = useQueryClient();
-  const [page] = useState(1);
-  const limit = 20;
 
-  // ---------------------------------------------------------------------------------
-  // GET
-  // ---------------------------------------------------------------------------------
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["mongo-clientes", page],
-    queryFn: async () => {
-      const response = await api.get<{ data: MongoCliente[]; total: number }>(
-        `/mongo/clientes?page=${page}&limit=${limit}`
-      );
-      console.log(response)
-      return response.data;
-    },
+  const {
+    data,
+    isLoading,
+    error,
+    createMutation,
+    updateMutation,
+    deleteMutation,
+  } = useCrudOperations<MongoCliente, ClienteFormData>({
+    endpoint: "/mongo/clientes",
+    queryKey: "mongo-clientes",
+    formToPayload: clienteFormToPayload,
+    onSuccessMessage: "Cliente procesado exitosamente"
   });
 
-  // ---------------------------------------------------------------------------------
-  // POST
-  // ---------------------------------------------------------------------------------
+  const {
+    isFormOpen,
+    editingItem: editingClient,
+    handleEdit,
+    handleDelete,
+    handleFormOpenChange,
+    handleFormSubmit,
+  } = useFormHandler<MongoCliente>();
 
-  const createMutation = useMutation({
-    mutationFn: async (data: ClienteFormData) => {  
-    const preferenciasDict = convertPreferenciasToDict(data.preferencias);
-    
-    const response = await api.post("/mongo/clientes", {
-      nombre: data.nombre,
-      email: data.email,
-      genero: data.genero,
-      pais: data.pais,
-      creado: new Date().toISOString(),
-      preferencias: preferenciasDict
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mongo-clientes"] });
-      toast.success("Cliente creado exitosamente");
-      setIsFormOpen(false);
-    },
-    onError: (error: AxiosError<{ detail?: string }>) => {
-      const errorMessage = error.response?.data?.detail || "Error al crear cliente";
-      toast.error(errorMessage);
-    },
-  });
-
-  // ---------------------------------------------------------------------------------
-  // PATCH
-  // ---------------------------------------------------------------------------------
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: ClienteFormData }) => {
-
-    const preferenciasDict = convertPreferenciasToDict(data.preferencias);
-
-      const response = await api.patch(`/mongo/clientes/${id}`, {
-        nombre: data.nombre,
-        email: data.email,
-        genero: data.genero,
-        pais: data.pais,
-        preferencias: preferenciasDict,
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mongo-clientes"] });
-      toast.success("Cliente actualizado exitosamente");
-      setIsFormOpen(false);
-      setEditingClient(null);
-    },
-    onError: (error: AxiosError<{ detail?: string }>) => {
-      const errorMessage = error.response?.data?.detail || "Error al actualizar cliente";
-      toast.error(errorMessage);
-    },
-  });
-
-  // ---------------------------------------------------------------------------------
-  // DELETE
-  // ---------------------------------------------------------------------------------
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await api.delete(`/mongo/clientes/${id}`);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mongo-clientes"] });
-      toast.success("Cliente eliminado exitosamente");
-    },
-    onError: (error: AxiosError<{ detail?: string }>) => {
-      const errorMessage = error.response?.data?.detail || "Error al eliminar cliente";
-      toast.error(errorMessage);
-    },
-  });
-
-  // ---------------------------------------------------------------------------------
-  // Mini-fuctions
-  // ---------------------------------------------------------------------------------
-
-  const handleEdit = (cliente: MongoCliente) => {
-    setEditingClient(cliente);
-    setIsFormOpen(true);
+  const onFormSubmit = (data: ClienteFormData) => {
+    handleFormSubmit(
+      data,
+      editingClient,
+      createMutation.mutate,
+      (id, data) => updateMutation.mutate({ id, data })
+    );
   };
-
-  const handleDelete = (cliente: MongoCliente) => {
-    if (confirm("¿Estás seguro de que quieres eliminar este cliente?")) {
-      deleteMutation.mutate(cliente.id);
-    }
-  };
-
-  const handleFormSubmit = (data: ClienteFormData) => {
-    if (editingClient) {
-      updateMutation.mutate({ id: editingClient.id, data});
-    } else {
-      createMutation.mutate(data);
-    }
-  };
-
-  const handleFormOpenChange = (open: boolean) => {
-    setIsFormOpen(open);
-    if (!open) {
-      setEditingClient(null);
-    }
+  const onDelete = (cliente: MongoCliente) => {
+    handleDelete(cliente, deleteMutation.mutate);
   };
 
   if (error) {
     toast.error("Error loading clients");
   }
-
-  // ---------------------------------------------------------------------------------
-  // Screen
-  // ---------------------------------------------------------------------------------
-
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
@@ -155,7 +55,7 @@ const MongoClientes = () => {
           <h1 className="text-3xl font-bold text-mongo">MongoDB Clientes</h1>
           <p className="text-muted-foreground mt-1">Manage client records in MongoDB</p>
         </div>
-        <Button className="bg-mongo hover:bg-mongo-dark" onClick={() => setIsFormOpen(true)}>
+        <Button className="bg-mongo hover:bg-mongo-dark" onClick={() => handleFormOpenChange(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Client
         </Button>
@@ -165,7 +65,7 @@ const MongoClientes = () => {
         key={editingClient?.id ?? "new"} 
         open={isFormOpen}
         onOpenChange={handleFormOpenChange}
-        onSubmit={handleFormSubmit}
+        onSubmit={onFormSubmit}
         dbType="mongo"
         generos={["Masculino", "Femenino", "Otro"]}
         addPreferencias={true}
@@ -217,7 +117,7 @@ const MongoClientes = () => {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => handleDelete(cliente)}
+                        onClick={() => onDelete(cliente)}
                         disabled={deleteMutation.isPending}
                       >
                         <Trash2 className="h-4 w-4" />

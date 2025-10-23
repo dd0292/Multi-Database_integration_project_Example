@@ -1,43 +1,50 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, ShoppingCart } from "lucide-react";
+import { Edit, Plus, ShoppingCart } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { OrdenFormModal } from "../../components/Sales/OrdenFormModal";
 import { toast } from "sonner";
-import api from "../../services/api";
-import type { MongoOrden } from "../../types/databases";
+import { useCrudOperations } from "../../hooks/useCrudOperations";
+import { useFormHandler } from "../../hooks/useFormHandler";
+import type { OrdenFormData } from "../../types/iOrden";
+import { ordenFormToPayload, type MongoOrden } from "../../types/Mongo/Orden";
 
 const MongoOrdenes = () => {
-  const [page] = useState(1);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const limit = 20;
-  const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["mongo-ordenes", page],
-    queryFn: async () => {
-      const response = await api.get<{ data: MongoOrden[]; total: number }>(
-        `/mongo/ordenes?page=${page}&limit=${limit}`
-      );
-      return response.data;
-    },
+  const {
+    data,
+    isLoading,
+    error,
+    createMutation,
+    updateMutation,
+    deleteMutation,
+  } = useCrudOperations<MongoOrden, OrdenFormData>({
+    endpoint: "/mongo/ordenes",
+    queryKey: "mongo-ordenes",
+    formToPayload: ordenFormToPayload,
+    onSuccessMessage: "Orden procesado exitosamente"
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return api.post("/mongo/ordenes", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mongo-ordenes"] });
-      toast.success("Orden creada exitosamente");
-      setIsFormOpen(false);
-    },
-    onError: () => {
-      toast.error("Error al crear orden");
-    },
-  });
+  const {
+    isFormOpen,
+    editingItem: editingClient,
+    handleEdit,
+    handleDelete,
+    handleFormOpenChange,
+    handleFormSubmit,
+  } = useFormHandler<MongoOrden>();
+
+  const onFormSubmit = (data: OrdenFormData) => {
+    handleFormSubmit(
+      data,
+      editingClient,
+      createMutation.mutate,
+      (id, data) => updateMutation.mutate({ id, data })
+    );
+  };
+  const onDelete = (cliente: MongoOrden) => {
+    handleDelete(cliente, deleteMutation.mutate);
+  };
 
   if (error) {
     toast.error("Error loading orders");
@@ -71,7 +78,7 @@ const MongoOrdenes = () => {
           <h1 className="text-3xl font-bold text-mongo">MongoDB Órdenes</h1>
           <p className="text-muted-foreground mt-1">Manage sales orders in MongoDB</p>
         </div>
-        <Button className="bg-mongo hover:bg-mongo-dark" onClick={() => setIsFormOpen(true)}>
+        <Button className="bg-mongo hover:bg-mongo-dark" onClick={() => handleFormOpenChange(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Order
         </Button>
@@ -79,8 +86,8 @@ const MongoOrdenes = () => {
 
       <OrdenFormModal
         open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        onSubmit={(data) => createMutation.mutate(data)}
+        onOpenChange={handleFormOpenChange}
+        onSubmit={onFormSubmit}
         dbType="mongo"
         canales={["WEB", "TIENDA", "APP"]}
         monedas={["CRC"]}
@@ -104,11 +111,11 @@ const MongoOrdenes = () => {
           ) : data?.data && data.data.length > 0 ? (
             <div className="space-y-4">
               {data.data.map((orden) => (
-                <Card key={orden._id} className="p-5 hover:shadow-md transition-shadow">
+                <Card key={orden.id} className="p-5 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-lg">Order #{orden._id?.slice(-8)}</h3>
+                        <h3 className="font-semibold text-lg">Order #{orden.id?.slice(-8)}</h3>
                         <Badge className={getChannelColor(orden.canal)}>
                           {orden.canal}
                         </Badge>
@@ -142,6 +149,20 @@ const MongoOrdenes = () => {
                       ))}
                     </div>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(orden)}
+                    disabled={updateMutation.isPending}
+                  >
+                  <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => onDelete(orden)}
+                    disabled={deleteMutation.isPending}
+                  ></Button>
                 </Card>
               ))}
             </div>

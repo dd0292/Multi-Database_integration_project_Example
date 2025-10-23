@@ -1,4 +1,5 @@
 from typing import List, Optional, Dict, Any
+from api.schemas.froms import OrdenItem
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
@@ -6,15 +7,6 @@ from datetime import datetime
 class PreferenciaItem(BaseModel):
     categoria: str
     texto: str
-
-
-class ClienteCreate(BaseModel):
-    nombre: str
-    email: EmailStr
-    genero: str
-    pais: str
-    preferencias: Optional[Dict[str, Any]]
-    creado: datetime
 
 class ClienteResponse(BaseModel):
     id: str
@@ -25,10 +17,23 @@ class ClienteResponse(BaseModel):
     preferencias: Optional[List[PreferenciaItem]]
     creado: datetime
 
-class ClienteUpdate(BaseModel):
-    nombre: Optional[str]
-    email: Optional[EmailStr]
-    genero: Optional[str]
-    preferencias: Optional[Dict[str, Any]]
-    pais: Optional[str]
+# Producto
+class ProductoResponse(BaseModel):
+    id: str 
+    codigo_mongo: str 
+    nombre: str
+    categoria: str 
+    equivalencias: Optional[dict] 
 
+# Orden
+class OrdenResponse(BaseModel):
+    id: str 
+    cliente_id: str 
+    fecha: str 
+    canal: str 
+    moneda: str
+    items: List[OrdenItem] 
+    descripcion: Optional[str] 
+    total: float
+    creado: datetime
+    actualizado: datetime
