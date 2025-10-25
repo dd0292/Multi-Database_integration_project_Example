@@ -54,7 +54,7 @@ class ProductoService:
             return None
             
         # Convert to dict and remove None values for partial update
-        update_data = producto_update.dict(exclude_unset=True)
+        update_data = producto_update.model_dump(exclude_unset=True)
         
         # Handle categoriasAdicionales transformation
         categorias_adicionales = update_data.pop("categoriasAdicionales", None)
