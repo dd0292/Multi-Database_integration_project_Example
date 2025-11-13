@@ -22,14 +22,16 @@ class Settings:
     MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
     MYSQL_DB = os.getenv("MYSQL_DB", "sales_mysql")
     
-    #MSSQL Server
-    SQLSERVER_HOST = os.getenv( "SQLSERVER_HOST", "localhost")
-    SQLSERVER_PORT = os.getenv( "SQLSERVER_PORT", "1433")
-    SQLSERVER_DB = os.getenv("SQLSERVER_DB", "Ventas_DW")
-    SQLSERVER_USER = os.getenv( "SQLSERVER_USER", "admin")
-    SQLSERVER_PASSWORD = os.getenv( "SQLSERVER_PASSWORD", "")
-    SQLSERVER_DRIVER = os.getenv( "SQLSERVER_DRIVER", "ODBC Driver 17 for SQL Server")
+    # MSSQL Server (general connection details)
+    SQLSERVER_HOST = os.getenv("SQLSERVER_HOST", "localhost")
+    SQLSERVER_PORT = os.getenv("SQLSERVER_PORT", "1433")
+    SQLSERVER_USER = os.getenv("SQLSERVER_USER", "sa")
+    SQLSERVER_PASSWORD = os.getenv("SQLSERVER_PASSWORD", "")
+    SQLSERVER_DRIVER = os.getenv("SQLSERVER_DRIVER", "ODBC Driver 17 for SQL Server")
 
+    # MSSQL DB names (two databases)
+    SQLSERVER_DB_DW = os.getenv("SQLSERVER_DB_DW", "Ventas_DW")
 
+    SQLSERVER_DB_TRANSAC = os.getenv("SQLSERVER_DB_TRANSAC", "Ventas_Transactional")
 
 settings = Settings()

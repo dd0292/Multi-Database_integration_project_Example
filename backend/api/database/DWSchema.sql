@@ -1,11 +1,3 @@
--- Crear base de datos del Data Warehouse
-CREATE DATABASE Ventas_DW;
-GO
-
-USE Ventas_DW;
-GO
-
--- Tabla Dimensión Cliente
 CREATE TABLE DimCliente (
     ClienteID INT IDENTITY(1,1) PRIMARY KEY,
     ClienteKeyNatural NVARCHAR(100), -- ID original del sistema fuente
@@ -17,19 +9,21 @@ CREATE TABLE DimCliente (
     SourceSystem NVARCHAR(20) , -- Sistema de origen (SQL Server, MySQL, etc.)
     FechaInicioValidez DATE NOT NULL DEFAULT (GETDATE()),
     FechaFinValidez DATE NULL,
-    EsRegistroActual BIT NOT NULL DEFAULT 1
+    EsRegistroActual BIT NOT NULL DEFAULT 1,
+    Activo BIT NOT NULL DEFAULT 1
 );
 
 -- Tabla Dimensión Producto
 CREATE TABLE DimProducto (
     ProductoID INT IDENTITY(1,1) PRIMARY KEY,
-    SKU NVARCHAR(40) NOT NULL, -- SKU oficial unificado
+    SKU NVARCHAR(40) NOT NULL UNIQUE, -- SKU oficial unificado
     Nombre NVARCHAR(150) NOT NULL,
     Categoria NVARCHAR(80) NOT NULL,
     SourceSystem NVARCHAR(20),
     FechaInicioValidez DATE NOT NULL DEFAULT (GETDATE()),
     FechaFinValidez DATE NULL,
-    EsRegistroActual BIT NOT NULL DEFAULT 1
+    EsRegistroActual BIT NOT NULL DEFAULT 1,
+    Activo BIT NOT NULL DEFAULT 1
 );
 
 -- Tabla Dimensión Tiempo
@@ -71,7 +65,8 @@ CREATE TABLE FactVentas (
     DescuentoPct DECIMAL(5,2) NULL,
     TipoCambioAplicado DECIMAL(12,6) NULL, -- Tasa de cambio aplicada
     SourceSystem NVARCHAR(20) NOT NULL,
-    FechaCarga DATETIME2 NOT NULL DEFAULT (SYSDATETIME())
+    FechaCarga DATETIME2 NOT NULL DEFAULT (SYSDATETIME()),
+    Activo BIT NOT NULL DEFAULT 1
 );
 
 -- Tabla de Metas de Ventas
@@ -83,7 +78,8 @@ CREATE TABLE MetasVentas (
     Mes INT NOT NULL CHECK (Mes BETWEEN 1 AND 12),
     MetaUSD DECIMAL(18,2) NOT NULL,
     FechaCreacion DATETIME2 NOT NULL DEFAULT (SYSDATETIME()),
-    UsuarioCreacion NVARCHAR(50) NOT NULL DEFAULT (SYSTEM_USER)
+    UsuarioCreacion NVARCHAR(50) NOT NULL DEFAULT (SYSTEM_USER),
+    Activo BIT NOT NULL DEFAULT 1
 );
 
 -- Tabla de Tipos de Cambio

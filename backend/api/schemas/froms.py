@@ -34,3 +34,9 @@ class OrdenFormData(BaseModel):
     moneda: str = Field(..., description="Tipo de moneda")
     items: List[OrdenItem] = Field(..., min_items=1, description="Lista de items de la orden")
     descripcion: Optional[str] = Field(None, description="Descripción adicional de la orden")
+
+class ClienteUpdate(BaseModel):
+    nombre: Optional[str] = None
+    email: Optional[str] = None
+    genero: Optional[str] = None
+    pais: Optional[str] = None

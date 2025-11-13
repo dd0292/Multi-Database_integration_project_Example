@@ -8,6 +8,24 @@ class ProductoService:
         self.conn = conn
 
     def create_producto(self, producto_data: ProductoFormData) -> Dict[str, Any]:
+        check_q = text("SELECT ProductoId, Activo FROM Ventas_Transactional.dbo.Producto WHERE SKU = :sku;")
+        existing = self.conn.execute(check_q, {"sku": producto_data.sku}).mappings().first()
+        if existing:
+            if existing["Activo"]:
+                return self.get_producto_by_id(existing["ProductoId"])
+            with self.conn.begin():
+                upd = text("""
+                    UPDATE Ventas_Transactional.dbo.Producto
+                    SET Activo = 1, Nombre = :nombre, Categoria = :categoria
+                    WHERE ProductoId = :id;
+                """)
+                self.conn.execute(upd, {
+                    "nombre": producto_data.nombre,
+                    "categoria": producto_data.categoria,
+                    "id": existing["ProductoId"]
+                })
+            return self.get_producto_by_id(existing["ProductoId"])
+
         q = text("""
         INSERT INTO Ventas_Transactional.dbo.Producto (SKU, Nombre, Categoria)
         OUTPUT INSERTED.ProductoId
@@ -18,8 +36,17 @@ class ProductoService:
             "nombre": producto_data.nombre,
             "categoria": producto_data.categoria
         }
-        res = self.conn.execute(q, params)
-        inserted = res.mappings().first()
+        with self.conn.begin():
+            res = self.conn.execute(q, params)
+            inserted = res.mappings().first()
+            try:
+                res.close()
+            except Exception:
+                pass
+
+        if not inserted:
+            raise RuntimeError("Insert did not return an inserted id")
+
         producto_id = inserted["ProductoId"]
         return self.get_producto_by_id(producto_id)
 
@@ -28,10 +55,11 @@ class ProductoService:
         q = text("""
         SELECT ProductoId, SKU, Nombre, Categoria
         FROM Ventas_Transactional.dbo.Producto
+        WHERE Activo = 1
         ORDER BY ProductoId
         OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY;
         """)
-        total_q = text("SELECT COUNT(1) AS total FROM Ventas_Transactional.dbo.Producto;")
+        total_q = text("SELECT COUNT(1) AS total FROM Ventas_Transactional.dbo.Producto WHERE Activo = 1;")
         res = self.conn.execute(q, {"offset": offset, "limit": limit})
         rows = [dict(r) for r in res.mappings().all()]
         total = self.conn.execute(total_q).scalar_one()
@@ -41,13 +69,13 @@ class ProductoService:
         q = text("""
         SELECT ProductoId, SKU, Nombre, Categoria
         FROM Ventas_Transactional.dbo.Producto
-        WHERE ProductoId = :id;
+        WHERE ProductoId = :id AND Activo = 1;
         """)
         res = self.conn.execute(q, {"id": producto_id})
         row = res.mappings().first()
         return dict(row) if row else None
 
-    def update_producto(self, producto_id: int, producto_update: ProductoFormData) -> Optional[Dict[str, Any]]:
+    def update_producto(self, producto_id: int, producto_update) -> Optional[Dict[str, Any]]:
         update_data = producto_update.model_dump(exclude_unset=True)
         if not update_data:
             return self.get_producto_by_id(producto_id)
@@ -58,10 +86,12 @@ class ProductoService:
             params[f"p{i}"] = v
         set_clause = ", ".join(set_parts)
         q = text(f"UPDATE Ventas_Transactional.dbo.Producto SET {set_clause} WHERE ProductoId = :id;")
-        self.conn.execute(q, params)
+        with self.conn.begin():
+            self.conn.execute(q, params)
         return self.get_producto_by_id(producto_id)
 
     def delete_producto(self, producto_id: int) -> bool:
-        q = text("DELETE FROM Ventas_Transactional.dbo.Producto WHERE ProductoId = :id;")
-        res = self.conn.execute(q, {"id": producto_id})
+        q = text("UPDATE Ventas_Transactional.dbo.Producto SET Activo = 0 WHERE ProductoId = :id;")
+        with self.conn.begin():
+            res = self.conn.execute(q, {"id": producto_id})
         return res.rowcount > 0

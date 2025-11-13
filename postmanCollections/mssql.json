@@ -1,0 +1,343 @@
+{
+  "info": {
+    "name": "Multi-DB API - Test Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Requests for /mssql (transactional) and /dw (datawarehouse)"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "clienteId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "productoId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "ordenId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "MSSQL - Clientes",
+      "item": [
+        {
+          "name": "List Clientes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/clientes?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","clientes"],
+              "query": [
+                {"key":"page","value":"1"},
+                {"key":"limit","value":"20"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cliente by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/clientes/{{clienteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","clientes","{{clienteId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan Perez\",\n  \"email\": \"juan.perez@example.com\",\n  \"genero\": \"Masculino\",\n  \"pais\": \"Costa Rica\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/clientes",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","clientes"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Cliente",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan P. Updated\",\n  \"pais\": \"Panama\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/clientes/{{clienteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","clientes","{{clienteId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Cliente",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/clientes/{{clienteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","clientes","{{clienteId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "MSSQL - Productos",
+      "item": [
+        {
+          "name": "List Productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/productos?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","productos"],
+              "query": [
+                {"key":"page","value":"1"},
+                {"key":"limit","value":"20"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Producto by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/productos/{{productoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","productos","{{productoId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Producto",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"ABC-123\",\n  \"nombre\": \"Producto Demo\",\n  \"categoria\": \"General\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/productos",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","productos"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Producto",
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Producto Actualizado\",\n  \"categoria\": \"Promocion\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/productos/{{productoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","productos","{{productoId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Producto",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/productos/{{productoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","productos","{{productoId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "MSSQL - Ordenes",
+      "item": [
+        {
+          "name": "List Ordenes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/ordenes?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","ordenes"],
+              "query": [
+                {"key":"page","value":"1"},
+                {"key":"limit","value":"20"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Orden by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/ordenes/{{ordenId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","ordenes","{{ordenId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Orden",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_id\": 1,\n  \"fecha\": \"2025-01-15\",\n  \"canal\": \"Online\",\n  \"moneda\": \"USD\",\n  \"total\": 123.45\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/ordenes",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","ordenes"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Orden",
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"total\": 150.00,\n  \"canal\": \"Tienda\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/ordenes/{{ordenId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","ordenes","{{ordenId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Orden",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/ordenes/{{ordenId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","ordenes","{{ordenId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "DW - Read endpoints",
+      "item": [
+        {
+          "name": "List DimCliente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dw/dimcliente?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["dw","dimcliente"],
+              "query": [
+                {"key":"page","value":"1"},
+                {"key":"limit","value":"50"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List DimProducto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dw/dimproducto?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["dw","dimproducto"],
+              "query": [
+                {"key":"page","value":"1"},
+                {"key":"limit","value":"50"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List DimTiempo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dw/dimtiempo?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["dw","dimtiempo"],
+              "query": [
+                {"key":"page","value":"1"},
+                {"key":"limit","value":"50"}
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

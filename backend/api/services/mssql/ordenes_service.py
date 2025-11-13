@@ -20,8 +20,17 @@ class OrdenService:
             "moneda": orden_data.moneda,
             "total": orden_data.total
         }
-        res = self.conn.execute(q, params)
-        inserted = res.mappings().first()
+        with self.conn.begin():
+            res = self.conn.execute(q, params)
+            inserted = res.mappings().first()
+            try:
+                res.close()
+            except Exception:
+                pass
+
+        if not inserted:
+            raise RuntimeError("Insert did not return an inserted id")
+
         orden_id = inserted["OrdenId"]
         return self.get_orden_by_id(orden_id)
 
@@ -30,10 +39,11 @@ class OrdenService:
         q = text("""
         SELECT OrdenId, ClienteId, Fecha, Canal, Moneda, Total
         FROM Ventas_Transactional.dbo.Orden
+        WHERE Activo = 1
         ORDER BY OrdenId
         OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY;
         """)
-        total_q = text("SELECT COUNT(1) AS total FROM Ventas_Transactional.dbo.Orden;")
+        total_q = text("SELECT COUNT(1) AS total FROM Ventas_Transactional.dbo.Orden WHERE Activo = 1;")
         res = self.conn.execute(q, {"offset": offset, "limit": limit})
         rows = [dict(r) for r in res.mappings().all()]
         total = self.conn.execute(total_q).scalar_one()
@@ -43,7 +53,7 @@ class OrdenService:
         q = text("""
         SELECT OrdenId, ClienteId, Fecha, Canal, Moneda, Total
         FROM Ventas_Transactional.dbo.Orden
-        WHERE OrdenId = :id;
+        WHERE OrdenId = :id AND Activo = 1;
         """)
         res = self.conn.execute(q, {"id": orden_id})
         row = res.mappings().first()
@@ -60,10 +70,12 @@ class OrdenService:
             params[f"p{i}"] = v
         set_clause = ", ".join(set_parts)
         q = text(f"UPDATE Ventas_Transactional.dbo.Orden SET {set_clause} WHERE OrdenId = :id;")
-        self.conn.execute(q, params)
+        with self.conn.begin():
+            self.conn.execute(q, params)
         return self.get_orden_by_id(orden_id)
 
     def delete_orden(self, orden_id: int) -> bool:
-        q = text("DELETE FROM Ventas_Transactional.dbo.Orden WHERE OrdenId = :id;")
-        res = self.conn.execute(q, {"id": orden_id})
+        q = text("UPDATE Ventas_Transactional.dbo.Orden SET Activo = 0 WHERE OrdenId = :id;")
+        with self.conn.begin():
+            res = self.conn.execute(q, {"id": orden_id})
         return res.rowcount > 0
