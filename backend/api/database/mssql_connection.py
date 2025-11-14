@@ -3,6 +3,7 @@ import urllib.parse
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, Connection
+from sqlalchemy.pool import QueuePool
 
 from api.config import settings
 
@@ -37,7 +38,6 @@ def _create_engine_for(db_name: str, trusted: bool) -> Engine:
 
     odbc = _build_odbc_conn(driver, host, port, db_name, user, password, trusted)
     params = urllib.parse.quote_plus(odbc)
-    # tune pool to avoid exhaustion; enable pre-ping to detect stale connections
     return create_engine(
         f"mssql+pyodbc:///?odbc_connect={params}",
         fast_executemany=True,
@@ -48,6 +48,7 @@ def _create_engine_for(db_name: str, trusted: bool) -> Engine:
     )
 
 def init_engines(app_settings) -> None:
+    """Initialize engines at app startup"""
     trusted_flag = str(getattr(app_settings, "MSSQL_TRUSTED", "") or "").lower()
     trusted = trusted_flag in ("1", "true", "yes", "y")
 
@@ -62,6 +63,7 @@ def init_engines(app_settings) -> None:
         _engines[db_name] = _create_engine_for(db_name, trusted)
 
 def get_engine(db_name: Optional[str] = None) -> Engine:
+    """Get or create engine for a database"""
     if db_name is None:
         db_name = settings.SQLSERVER_DB_TRANSAC
 
@@ -73,10 +75,12 @@ def get_engine(db_name: Optional[str] = None) -> Engine:
     return _engines[db_name]
 
 def get_connection(db_name: Optional[str] = None) -> Connection:
+    """Get a connection from the engine"""
     engine = get_engine(db_name)
     return engine.connect()
 
 def dispose_engines() -> None:
+    """Dispose all engines at shutdown"""
     for name, eng in list(_engines.items()):
         try:
             eng.dispose()
@@ -88,10 +92,14 @@ def dispose_engines() -> None:
 def get_sql_connection_dep(db_name: Optional[str] = None) -> Callable[..., Generator[Connection, None, None]]:
     """
     Returns a dependency generator function bound to a DB name.
-    Use:
-      transac_dep = get_sql_connection_dep(settings.SQLSERVER_DB_TRANSAC)
-      dw_dep = get_sql_connection_dep(settings.SQLSERVER_DB_DW)
-      @router.get(..., conn=Depends(transac_dep))
+    
+    Usage:
+        transac_dep = get_sql_connection_dep(settings.SQLSERVER_DB_TRANSAC)
+        dw_dep = get_sql_connection_dep(settings.SQLSERVER_DB_DW)
+        
+        @router.get(..., conn=Depends(transac_dep))
+        def my_endpoint(conn = Depends(transac_dep)):
+            ...
     """
     target_db = db_name or settings.SQLSERVER_DB_TRANSAC
 
@@ -99,6 +107,12 @@ def get_sql_connection_dep(db_name: Optional[str] = None) -> Callable[..., Gener
         conn = get_connection(target_db)
         try:
             yield conn
+            # Commit on successful completion
+            conn.commit()
+        except Exception as e:
+            # Rollback on error
+            conn.rollback()
+            raise
         finally:
             try:
                 conn.close()

@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from api.database.mssql_connection import get_sql_connection_dep
 from api.services.mssql.clientes_service import ClienteService
+from api.services.mssql.bulk_upload_service import BulkUploadService
 from api.config import settings
 from api.schemas.froms import ClienteFormData, ClienteUpdate
 
 router = APIRouter()
-# bind the dependency factory to the transactional DB once
 transac_dep = get_sql_connection_dep(settings.SQLSERVER_DB_TRANSAC)
 
 @router.get("/")
@@ -42,3 +42,19 @@ def delete_cliente(cliente_id: int, conn = Depends(transac_dep)):
     if not ok:
         raise HTTPException(status_code=404, detail="Cliente not found")
     return None
+
+@router.post("/bulk/upload", status_code=status.HTTP_200_OK)
+def bulk_upload_clientes(file: UploadFile = File(...), conn = Depends(transac_dep)):
+    """Bulk upload clientes from CSV/JSON/Excel file"""
+    allowed = ('.csv', '.json', '.xlsx', '.xls', '.parquet')
+    if not file.filename.lower().endswith(allowed):
+        raise HTTPException(status_code=400, detail=f"File must be: {', '.join(allowed)}")
+    
+    content = file.file.read()
+    svc = BulkUploadService(conn)
+    result = svc.bulk_upload_clientes(content, file.filename)
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("message"))
+    
+    return result

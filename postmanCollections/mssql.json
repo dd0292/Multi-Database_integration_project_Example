@@ -112,6 +112,29 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Bulk Upload Clientes",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "clientes.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/clientes/bulk/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","clientes","bulk","upload"]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -196,6 +219,29 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Bulk Upload Productos",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "productos.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/productos/bulk/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","productos","bulk","upload"]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -239,7 +285,7 @@
             "header": [{"key":"Content-Type","value":"application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"cliente_id\": 1,\n  \"fecha\": \"2025-01-15\",\n  \"canal\": \"Online\",\n  \"moneda\": \"USD\",\n  \"total\": 123.45\n}",
+              "raw": "{\n  \"cliente_id\": 1,\n  \"fecha\": \"2025-01-15\",\n  \"canal\": \"WEB\",\n  \"moneda\": \"USD\",\n  \"total\": 123.45\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -257,7 +303,7 @@
             "header": [{"key":"Content-Type","value":"application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"total\": 150.00,\n  \"canal\": \"Tienda\"\n}",
+              "raw": "{\n  \"total\": 150.00,\n  \"canal\": \"TIENDA\"\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -277,6 +323,29 @@
               "raw": "{{baseUrl}}/mssql/ordenes/{{ordenId}}",
               "host": ["{{baseUrl}}"],
               "path": ["mssql","ordenes","{{ordenId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Upload Ordenes",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "ordenes.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/ordenes/bulk/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","ordenes","bulk","upload"]
             }
           },
           "response": []
@@ -304,6 +373,19 @@
           "response": []
         },
         {
+          "name": "Get DimCliente by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dw/dimcliente/{{clienteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["dw","dimcliente","{{clienteId}}"]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "List DimProducto",
           "request": {
             "method": "GET",
@@ -321,6 +403,19 @@
           "response": []
         },
         {
+          "name": "Get DimProducto by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dw/dimproducto/{{productoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["dw","dimproducto","{{productoId}}"]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "List DimTiempo",
           "request": {
             "method": "GET",
@@ -329,6 +424,36 @@
               "raw": "{{baseUrl}}/dw/dimtiempo?page=1&limit=50",
               "host": ["{{baseUrl}}"],
               "path": ["dw","dimtiempo"],
+              "query": [
+                {"key":"page","value":"1"},
+                {"key":"limit","value":"50"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get DimTiempo by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dw/dimtiempo/12345",
+              "host": ["{{baseUrl}}"],
+              "path": ["dw","dimtiempo","12345"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List FactVentas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dw/factventas?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["dw","factventas"],
               "query": [
                 {"key":"page","value":"1"},
                 {"key":"limit","value":"50"}
