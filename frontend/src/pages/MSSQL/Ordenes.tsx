@@ -7,7 +7,7 @@ import { Badge } from "../../components/ui/badge";
 import { OrdenFormModal } from "../../components/Sales/OrdenFormModal";
 import { toast } from "sonner";
 import api from "../../services/api";
-import type { MSSQLOrden } from "../../types/databases";
+import type { MSSQLOrden } from "../../types/MSSQL/Orden";
 
 const MSSQLOrdenes = () => {
   const [page] = useState(1);

@@ -104,6 +104,26 @@
           "response": []
         },
         {
+          "name": "Create Cliente (alternative: send form-like fields)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Maria Gomez\",\n  \"email\": \"maria.gomez@example.com\",\n  \"genero\": \"Femenino\",\n  \"pais\": \"Mexico\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mssql/clientes",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","clientes"]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Update Cliente",
           "request": {
             "method": "PUT",
@@ -321,7 +341,7 @@
             "header": [{"key":"Content-Type","value":"application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"cliente_id\": 1,\n  \"fecha\": \"2025-01-15\",\n  \"canal\": \"WEB\",\n  \"moneda\": \"USD\",\n  \"total\": 123.45\n}",
+              "raw": "{\n  \"cliente_id\": 1,\n  \"fecha\": \"2025-01-15\",\n  \"canal\": \"WEB\",\n  \"moneda\": \"USD\",\n  \"items\": [\n    { \"producto_id\": 1, \"cantidad\": 1, \"precio_unit\": 123.45 }\n  ]\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {
@@ -333,13 +353,13 @@
           "response": []
         },
         {
-          "name": "Update Orden",
+          "name": "Update Orden (replace items)",
           "request": {
             "method": "PUT",
             "header": [{"key":"Content-Type","value":"application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"total\": 150.00,\n  \"canal\": \"TIENDA\"\n}",
+              "raw": "{\n  \"canal\": \"TIENDA\",\n  \"items\": [\n    { \"producto_id\": 1, \"cantidad\": 2, \"precio_unit\": 50.00 }\n  ]\n}",
               "options": {"raw": {"language": "json"}}
             },
             "url": {

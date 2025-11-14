@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { ProductoFormModal } from "../../components/Sales/ProductoFormModal";
 import { toast } from "sonner";
 import api from "../../services/api";
-import type { MSSQLProducto } from "../../types/databases";
+import type { MSSQLProducto } from "../../types/MSSQL/Producto";
 
 const MSSQLProductos = () => {
   const [page] = useState(1);

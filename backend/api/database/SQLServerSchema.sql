@@ -44,6 +44,7 @@ CREATE TABLE OrdenDetalle (
     Cantidad INT NOT NULL CHECK (Cantidad > 0),
     PrecioUnit DECIMAL(18,2) NOT NULL,
     DescuentoPct DECIMAL(5,2) NULL,
+    Subtotal AS (Cantidad * PrecioUnit * (1 - ISNULL(DescuentoPct,0)/100.0)) PERSISTED,
     Activo BIT NOT NULL DEFAULT 1
 );
 

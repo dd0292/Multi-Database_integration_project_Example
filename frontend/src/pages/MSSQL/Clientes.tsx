@@ -7,7 +7,7 @@ import { DataTable } from "../../components/common/DataTable";
 import { ClienteFormModal } from "../../components/Sales/ClienteFormModal";
 import { toast } from "sonner";
 import api from "../../services/api";
-import type { MSSQLCliente } from "../../types/databases";
+import type { MSSQLCliente } from "../../types/MSSQL/Cliente";
 
 const MSSQLClientes = () => {
   const [page, setPage] = useState(1);
@@ -47,7 +47,7 @@ const MSSQLClientes = () => {
   const columns = [
     {
       header: "ID",
-      accessor: (row: MSSQLCliente) => <span className="font-mono">{row.ClienteId}</span>,
+      accessor: (row: MSSQLCliente) => <span className="font-mono">{row.id}</span>,
     },
     {
       header: "Name",
