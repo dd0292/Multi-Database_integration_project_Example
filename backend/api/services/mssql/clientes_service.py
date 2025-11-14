@@ -77,6 +77,17 @@ class ClienteService:
         row = res.mappings().first()
         return dict(row) if row else None
 
+    def get_cliente_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Get cliente by email"""
+        q = text("""
+        SELECT ClienteId, Nombre, Email, Genero, Pais, FechaRegistro
+        FROM Ventas_Transactional.dbo.Cliente
+        WHERE Email = :email AND Activo = 1;
+        """)
+        res = self.conn.execute(q, {"email": email})
+        row = res.mappings().first()
+        return dict(row) if row else None
+
     def update_cliente(self, cliente_id: int, cliente_update) -> Optional[Dict[str, Any]]:
         update_data = cliente_update.model_dump(exclude_unset=True)
         if not update_data:

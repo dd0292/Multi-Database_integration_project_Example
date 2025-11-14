@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-from api.schemas.froms import ProductoFormData
+from api.schemas.mssql import ProductoFormData
 
 class ProductoService:
     def __init__(self, conn: Connection):
@@ -13,17 +13,16 @@ class ProductoService:
         if existing:
             if existing["Activo"]:
                 return self.get_producto_by_id(existing["ProductoId"])
-            with self.conn.begin():
-                upd = text("""
-                    UPDATE Ventas_Transactional.dbo.Producto
-                    SET Activo = 1, Nombre = :nombre, Categoria = :categoria
-                    WHERE ProductoId = :id;
-                """)
-                self.conn.execute(upd, {
-                    "nombre": producto_data.nombre,
-                    "categoria": producto_data.categoria,
-                    "id": existing["ProductoId"]
-                })
+            upd = text("""
+                UPDATE Ventas_Transactional.dbo.Producto
+                SET Activo = 1, Nombre = :nombre, Categoria = :categoria
+                WHERE ProductoId = :id;
+            """)
+            self.conn.execute(upd, {
+                "nombre": producto_data.nombre,
+                "categoria": producto_data.categoria,
+                "id": existing["ProductoId"]
+            })
             return self.get_producto_by_id(existing["ProductoId"])
 
         q = text("""
@@ -31,24 +30,21 @@ class ProductoService:
         OUTPUT INSERTED.ProductoId
         VALUES (:sku, :nombre, :categoria);
         """)
-        params = {
+        res = self.conn.execute(q, {
             "sku": producto_data.sku,
             "nombre": producto_data.nombre,
             "categoria": producto_data.categoria
-        }
-        with self.conn.begin():
-            res = self.conn.execute(q, params)
-            inserted = res.mappings().first()
-            try:
-                res.close()
-            except Exception:
-                pass
+        })
+        inserted = res.mappings().first()
+        try:
+            res.close()
+        except Exception:
+            pass
 
         if not inserted:
             raise RuntimeError("Insert did not return an inserted id")
 
-        producto_id = inserted["ProductoId"]
-        return self.get_producto_by_id(producto_id)
+        return self.get_producto_by_id(inserted["ProductoId"])
 
     def get_productos(self, page: int = 1, limit: int = 20) -> Dict[str, Any]:
         offset = (page - 1) * limit
@@ -75,23 +71,35 @@ class ProductoService:
         row = res.mappings().first()
         return dict(row) if row else None
 
-    def update_producto(self, producto_id: int, producto_update) -> Optional[Dict[str, Any]]:
-        update_data = producto_update.model_dump(exclude_unset=True)
+    def get_producto_by_sku(self, sku: str) -> Optional[Dict[str, Any]]:
+        """Get producto by SKU"""
+        q = text("""
+        SELECT ProductoId, SKU, Nombre, Categoria
+        FROM Ventas_Transactional.dbo.Producto
+        WHERE SKU = :sku AND Activo = 1;
+        """)
+        res = self.conn.execute(q, {"sku": sku})
+        row = res.mappings().first()
+        return dict(row) if row else None
+
+    def update_producto(self, producto_id: int, producto_update: dict) -> Optional[Dict[str, Any]]:
+        """Update producto with dict payload"""
+        update_data = {k: v for k, v in producto_update.items() if v is not None}
         if not update_data:
             return self.get_producto_by_id(producto_id)
+        
         set_parts = []
         params = {"id": producto_id}
         for i, (k, v) in enumerate(update_data.items()):
             set_parts.append(f"{k} = :p{i}")
             params[f"p{i}"] = v
+        
         set_clause = ", ".join(set_parts)
         q = text(f"UPDATE Ventas_Transactional.dbo.Producto SET {set_clause} WHERE ProductoId = :id;")
-        with self.conn.begin():
-            self.conn.execute(q, params)
+        self.conn.execute(q, params)
         return self.get_producto_by_id(producto_id)
 
     def delete_producto(self, producto_id: int) -> bool:
         q = text("UPDATE Ventas_Transactional.dbo.Producto SET Activo = 0 WHERE ProductoId = :id;")
-        with self.conn.begin():
-            res = self.conn.execute(q, {"id": producto_id})
+        res = self.conn.execute(q, {"id": producto_id})
         return res.rowcount > 0

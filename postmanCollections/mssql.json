@@ -16,8 +16,18 @@
       "type": "string"
     },
     {
+      "key": "email",
+      "value": "juan.perez@example.com",
+      "type": "string"
+    },
+    {
       "key": "productoId",
       "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "sku",
+      "value": "ABC-123",
       "type": "string"
     },
     {
@@ -56,6 +66,19 @@
               "raw": "{{baseUrl}}/mssql/clientes/{{clienteId}}",
               "host": ["{{baseUrl}}"],
               "path": ["mssql","clientes","{{clienteId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cliente by Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/clientes/by-email/{{email}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","clientes","by-email","{{email}}"]
             }
           },
           "response": []
@@ -167,6 +190,19 @@
               "raw": "{{baseUrl}}/mssql/productos/{{productoId}}",
               "host": ["{{baseUrl}}"],
               "path": ["mssql","productos","{{productoId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Producto by SKU",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mssql/productos/by-sku/{{sku}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mssql","productos","by-sku","{{sku}}"]
             }
           },
           "response": []

@@ -21,6 +21,15 @@ def get_cliente(cliente_id: int, conn = Depends(transac_dep)):
         raise HTTPException(status_code=404, detail="Cliente not found")
     return row
 
+@router.get("/by-email/{email}")
+def get_cliente_by_email(email: str, conn = Depends(transac_dep)):
+    """Get cliente by email"""
+    svc = ClienteService(conn)
+    row = svc.get_cliente_by_email(email)
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Cliente with email '{email}' not found")
+    return row
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_cliente(payload: ClienteFormData, conn = Depends(transac_dep)):
     svc = ClienteService(conn)
