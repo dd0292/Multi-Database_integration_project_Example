@@ -4,7 +4,7 @@ from typing import Optional
 from api.schemas.froms import ClienteFormData
 
 
-class ClienteService:
+class ClienteMongoService:
     def __init__(self, collection):
         self.collection = collection
     

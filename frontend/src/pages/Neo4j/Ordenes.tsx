@@ -1,24 +1,62 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Plus, Network, ShoppingCart } from "lucide-react";
+import { Plus, Network, ShoppingCart, Edit, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
-import api from "../../services/api";
+import { ordenFormToPayload, type Neo4jOrden } from "../../types/Neo4j/Orden";
+import { useCrudOperations } from "../../hooks/useCrudOperations";
+import type { OrdenFormData } from "../../types/iOrden";
+import { useFormHandler } from "../../hooks/useFormHandler";
+import { toast } from "sonner";
+import { OrdenFormModal } from "../../components/Sales/OrdenFormModal";
 
 const Neo4jOrdenes = () => {
-  const [page] = useState(1);
-  const limit = 20;
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["neo4j-ordenes", page],
-    queryFn: async () => {
-      const response = await api.get<{ data: any[]; total: number }>(
-        `/neo4j/ordenes?page=${page}&limit=${limit}`
-      );
-      return response.data;
-    },
+  const {
+    data,
+    isLoading,
+    error,
+    createMutation,
+    updateMutation,
+    deleteMutation,
+  } = useCrudOperations<Neo4jOrden, OrdenFormData>({
+    endpoint: "/neo4j/ordenes",
+    queryKey: "neo4j-ordenes",
+    formToPayload: ordenFormToPayload,
+    onSuccessMessage: "Orden procesado exitosamente"
   });
+
+  const {
+    isFormOpen,
+    editingItem: editingClient,
+    handleEdit,
+    handleDelete,
+    handleFormOpenChange,
+    handleFormSubmit,
+  } = useFormHandler<Neo4jOrden>();
+
+  const onFormSubmit = (data: OrdenFormData) => {
+    handleFormSubmit(
+      data,
+      editingClient,
+      createMutation.mutate,
+      (id, data) => updateMutation.mutate({ id, data })
+    );
+  };
+  const onDelete = (cliente: Neo4jOrden) => {
+    handleDelete(cliente, deleteMutation.mutate);
+  };
+
+  if (error) {
+    toast.error("Error loading orders");
+  }
+
+  const formatCurrency = (amount: number, currency: string) => {
+    return new Intl.NumberFormat("es-CR", {
+      style: "currency",
+      currency: currency === "CRC" ? "CRC" : "USD",
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
 
   const getChannelColor = (canal: string) => {
     switch (canal) {
@@ -36,11 +74,22 @@ const Neo4jOrdenes = () => {
           <h1 className="text-3xl font-bold text-neo4j">Neo4j Órdenes</h1>
           <p className="text-muted-foreground mt-1">Manage order relationships in Neo4j graph</p>
         </div>
-        <Button className="bg-neo4j hover:bg-neo4j-dark">
+        <Button className="bg-neo4j hover:bg-neo4j-dark" onClick={() => handleFormOpenChange(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Order
         </Button>
       </div>
+
+      <OrdenFormModal
+        key={editingClient?.id ?? "new"} 
+        open={isFormOpen}
+        onOpenChange={handleFormOpenChange}
+        onSubmit={onFormSubmit}
+        dbType="neo4j"
+        canales={["WEB", "TIENDA", "APP"]}
+        monedas={["CRC", "USD"]}
+        initialData={editingClient!}
+      />
 
       <Card className="border-l-4 border-neo4j">
         <CardHeader>
@@ -85,6 +134,24 @@ const Neo4jOrdenes = () => {
                     <Network className="h-4 w-4" />
                     <span>{orden.items.length} product relationships</span>
                   </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(orden)}
+                    disabled={updateMutation.isPending}
+                  >
+                  <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => onDelete(orden)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+
                 </Card>
               ))}
             </div>

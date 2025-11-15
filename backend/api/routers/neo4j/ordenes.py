@@ -1,17 +1,17 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from datetime import datetime
 from typing import Optional
-from api.services.mongo.ordenes_service import OrdenMongoService
-from api.schemas.mongo import OrdenResponse
-from api.dependencies import get_mongo_ordenes_service
+from api.services.neo4j.ordenes_service import OrdenNeo4jService
+from api.dependencies import get_neo4j_ordenes_service
 from api.schemas.froms import OrdenFormData
+from api.schemas.neo4j import OrdenResponse
 
-router = APIRouter(prefix="/ordenes", tags=["mongo-ordenes"])
+router = APIRouter(prefix="/ordenes", tags=["neo4j-ordenes"])
 
 @router.post("/", response_model=OrdenResponse)
 def create_orden(
     orden: OrdenFormData,
-    service: OrdenMongoService = Depends(get_mongo_ordenes_service)
+    service: OrdenNeo4jService = Depends(get_neo4j_ordenes_service)
 ):
     try:
         return service.create_orden(orden)
@@ -25,7 +25,7 @@ def create_orden(
 def get_ordenes(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
-    service: OrdenMongoService = Depends(get_mongo_ordenes_service)
+    service: OrdenNeo4jService = Depends(get_neo4j_ordenes_service)
 ):
     try:
         return service.get_ordenes(page=page, limit=limit)
@@ -40,7 +40,7 @@ def get_ordenes_by_cliente(
     cliente_id: str,
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
-    service: OrdenMongoService = Depends(get_mongo_ordenes_service)
+    service: OrdenNeo4jService = Depends(get_neo4j_ordenes_service)
 ):
     try:
         return service.get_ordenes_by_cliente(cliente_id=cliente_id, page=page, limit=limit)
@@ -52,11 +52,11 @@ def get_ordenes_by_cliente(
 
 @router.get("/fecha", response_model=dict)
 def get_ordenes_by_fecha(
-    fecha_inicio: datetime = Query(..., description="Start date (YYYY-MM-DD)"),
-    fecha_fin: datetime = Query(..., description="End date (YYYY-MM-DD)"),
+    fecha_inicio: str = Query(..., description="Start date (YYYY-MM-DD)"),
+    fecha_fin: str = Query(..., description="End date (YYYY-MM-DD)"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
-    service: OrdenMongoService = Depends(get_mongo_ordenes_service)
+    service: OrdenNeo4jService = Depends(get_neo4j_ordenes_service)
 ):
     try:
         return service.get_ordenes_by_fecha(
@@ -73,7 +73,7 @@ def get_ordenes_by_fecha(
 
 @router.get("/stats", response_model=dict)
 def get_ordenes_stats(
-    service: OrdenMongoService = Depends(get_mongo_ordenes_service)
+    service: OrdenNeo4jService = Depends(get_neo4j_ordenes_service)
 ):
     try:
         return service.get_ordenes_stats()
@@ -86,7 +86,7 @@ def get_ordenes_stats(
 @router.get("/{orden_id}", response_model=OrdenResponse)
 def get_orden(
     orden_id: str,
-    service: OrdenMongoService = Depends(get_mongo_ordenes_service)
+    service: OrdenNeo4jService = Depends(get_neo4j_ordenes_service)
 ):
     orden = service.get_orden_by_id(orden_id)
     if not orden:
@@ -97,7 +97,7 @@ def get_orden(
 def update_orden(
     orden_id: str,
     orden_update: OrdenFormData,
-    service: OrdenMongoService = Depends(get_mongo_ordenes_service)
+    service: OrdenNeo4jService = Depends(get_neo4j_ordenes_service)
 ):
     updated_orden = service.update_orden(orden_id, orden_update)
     if not updated_orden:
@@ -107,7 +107,7 @@ def update_orden(
 @router.delete("/{orden_id}")
 def delete_orden(
     orden_id: str,
-    service: OrdenMongoService = Depends(get_mongo_ordenes_service)
+    service: OrdenNeo4jService = Depends(get_neo4j_ordenes_service)
 ):
     if not service.delete_orden(orden_id):
         raise HTTPException(status_code=404, detail="Orden not found")
