@@ -1,48 +1,52 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Network, Package } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import api from "../../services/api";
 import { ProductoFormModal } from "../../components/Sales/ProductoFormModal";
 import { toast } from "sonner";
+import { productoFormToPayload, type Neo4jProducto } from "../../types/Neo4j/Producto";
+import { useCrudOperations } from "../../hooks/useCrudOperations";
+import type { ProductoFormData } from "../../types/iProducto";
+import { useFormHandler } from "../../hooks/useFormHandler";
 
 const Neo4jProductos = () => {
-  const [page] = useState(1);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const limit = 20;
-  const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["neo4j-productos", page],
-    queryFn: async () => {
-      const response = await api.get<{ data: any[]; total: number }>(
-        `/neo4j/productos?page=${page}&limit=${limit}`
-      );
-      return response.data;
-    },
+  const {
+    data,
+    isLoading,
+    error,
+    createMutation,
+    updateMutation,
+    deleteMutation,
+  } = useCrudOperations<Neo4jProducto, ProductoFormData>({
+    endpoint: "/neo4j/productos",
+    queryKey: "neo4j-productos",
+    formToPayload: productoFormToPayload,
+    onSuccessMessage: "Cliente procesado exitosamente"
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return api.post("/neo4j/productos", {
-        codigo_mongo: data.codigo,
-        nombre: data.nombre,
-        categoria: data.categoria,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["neo4j-productos"] });
-      toast.success("Producto creado exitosamente");
-      setIsFormOpen(false);
-    },
-    onError: () => {
-      toast.error("Error al crear producto");
-    },
-  });
+  const {
+    isFormOpen,
+    editingItem: editingClient,
+    handleEdit,
+    handleDelete,
+    handleFormOpenChange,
+    handleFormSubmit,
+  } = useFormHandler<Neo4jProducto>();
+
+  const onFormSubmit = (data: ProductoFormData) => {
+    handleFormSubmit(
+      data,
+      editingClient,
+      createMutation.mutate,
+      (id, data) => updateMutation.mutate({ id, data })
+    );
+  };
+  const onDelete = (cliente: Neo4jProducto) => {
+    handleDelete(cliente, deleteMutation.mutate);
+  };
 
   if (error) {
-    toast.error("Error loading products");
+    toast.error("Error loading clients");
   }
 
   return (
@@ -52,19 +56,25 @@ const Neo4jProductos = () => {
           <h1 className="text-3xl font-bold text-neo4j">Neo4j Productos</h1>
           <p className="text-muted-foreground mt-1">Manage product nodes in Neo4j graph database</p>
         </div>
-        <Button className="bg-neo4j hover:bg-neo4j-dark" onClick={() => setIsFormOpen(true)}>
+        <Button className="bg-neo4j hover:bg-neo4j-dark" onClick={() => handleFormOpenChange(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Product
         </Button>
       </div>
 
       <ProductoFormModal
+        key={editingClient?.id ?? "new"} 
         open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        onSubmit={(data) => createMutation.mutate(data)}
+        onOpenChange={handleFormOpenChange}
+        onSubmit={onFormSubmit}
         dbType="neo4j"
         extraCodes={true}
-        tiposCategorias={["Codigo Alt", "Codigo Mongo"]}
+        tiposCategorias={["codigo_alt","codigo_mongo"]}
+        initialData={editingClient ? {
+          nombre: editingClient.nombre,
+          categoria: editingClient.categoria,
+          codigo: editingClient.sku
+        } : undefined}
       />
 
       <Card className="border-l-4 border-neo4j">

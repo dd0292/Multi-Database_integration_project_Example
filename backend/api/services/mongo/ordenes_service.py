@@ -4,7 +4,7 @@ from typing import List, Optional, Dict
 from pymongo.collection import Collection
 from api.schemas.froms import OrdenFormData
 
-class OrdenService:
+class OrdenMongoService:
     def __init__(self, collection: Collection):
         self.collection = collection
     

@@ -5,7 +5,7 @@ from pymongo.collection import Collection
 from api.schemas.froms import ProductoFormData
 
 
-class ProductoService:
+class ProductoMongoService:
     def __init__(self, collection: Collection):
         self.collection = collection
     
