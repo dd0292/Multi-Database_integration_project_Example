@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, UploadFile, File
+import json
 
 from api.database.mssql_connection import get_sql_connection_dep
 from api.services.mssql.ordenes_service import OrdenService
+from api.services.mssql.ordenes_bulk_service import OrdenBulkService
 from api.config import settings
 
 router = APIRouter()
@@ -48,3 +50,27 @@ def delete_orden(orden_id: int, conn = Depends(transac_dep)):
     if not ok:
         raise HTTPException(status_code=404, detail="Orden not found")
     return None
+
+@router.post("/bulk/upload", status_code=status.HTTP_200_OK)
+def bulk_upload_ordenes(file: UploadFile = File(...), conn = Depends(transac_dep)):
+    """
+    Bulk upload ordenes from JSON file.
+    File should contain array of order objects.
+    """
+    try:
+        content = file.file.read()
+        ordenes = json.loads(content)
+        
+        if not isinstance(ordenes, list):
+            raise HTTPException(status_code=400, detail="JSON must be an array of orders")
+        
+        svc = OrdenBulkService(conn)
+        result = svc.bulk_upload_ordenes(ordenes)
+        
+        return result
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON file")
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
