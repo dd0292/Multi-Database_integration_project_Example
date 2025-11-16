@@ -28,10 +28,10 @@ const MSSQLClientes = () => {
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       return api.post("/mssql/clientes", {
-        Nombre: data.nombre,
-        Email: data.email,
-        Genero: data.genero,
-        Pais: data.pais,
+        nombre: data.nombre,
+        email: data.email,
+        genero: data.genero,
+        pais: data.pais,
       });
     },
     onSuccess: () => {

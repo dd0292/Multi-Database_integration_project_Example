@@ -27,9 +27,9 @@ const MSSQLProductos = () => {
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       return api.post("/mssql/productos", {
-        Nombre: data.nombre,
-        Categoria: data.categoria,
-        SKU: data.codigo,
+        nombre: data.nombre,
+        categoria: data.categoria,
+        sku: data.codigo,
       });
     },
     onSuccess: () => {
