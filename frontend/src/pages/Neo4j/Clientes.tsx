@@ -1,28 +1,52 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ClienteFormModal } from "../../components/Sales/ClienteFormModal";
 import { toast } from "sonner";
-import { Plus, Network } from "lucide-react";
+import { Plus, Network, Edit, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import api from "../../services/api";
+import { useCrudOperations } from "../../hooks/useCrudOperations";
+import { clienteFormToPayload, type Neo4jCliente } from "../../types/Neo4j/Cliente";
+import type { ClienteFormData } from "../../types/iCliente";
+import { useFormHandler } from "../../hooks/useFormHandler";
 
 const Neo4jClientes = () => {
-  const [page] = useState(1);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const limit = 20;
-  const queryClient = useQueryClient();
-  const createMutation = useMutation({ mutationFn: async (data: any) => api.post("/neo4j/clientes", data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["neo4j-clientes"] }); toast.success("Cliente creado"); setIsFormOpen(false); } });
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["neo4j-clientes", page],
-    queryFn: async () => {
-      const response = await api.get<{ data: any[]; total: number }>(
-        `/neo4j/clientes?page=${page}&limit=${limit}`
-      );
-      return response.data;
-    },
+  const {
+    data,
+    isLoading,
+    error,
+    createMutation,
+    updateMutation,
+    deleteMutation,
+  } = useCrudOperations<Neo4jCliente, ClienteFormData>({
+    endpoint: "/neo4j/clientes",
+    queryKey: "neo4j-clientes",
+    formToPayload: clienteFormToPayload,
+    onSuccessMessage: "Cliente procesado exitosamente"
   });
+
+  const {
+    isFormOpen,
+    editingItem: editingClient,
+    handleEdit,
+    handleDelete,
+    handleFormOpenChange,
+    handleFormSubmit,
+  } = useFormHandler<Neo4jCliente>();
+
+  const onFormSubmit = (data: ClienteFormData) => {
+    handleFormSubmit(
+      data,
+      editingClient,
+      createMutation.mutate,
+      (id, data) => updateMutation.mutate({ id, data })
+    );
+  };
+  const onDelete = (cliente: Neo4jCliente) => {
+    handleDelete(cliente, deleteMutation.mutate);
+  };
+
+  if (error) {
+    toast.error("Error loading clients");
+  }
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -31,9 +55,26 @@ const Neo4jClientes = () => {
           <h1 className="text-3xl font-bold text-neo4j">Neo4j Clientes</h1>
           <p className="text-muted-foreground mt-1">Manage client nodes in Neo4j graph database</p>
         </div>
-        <Button className="bg-neo4j hover:bg-neo4j-dark" onClick={() => setIsFormOpen(true)}><Plus className="h-4 w-4 mr-2" />New Client</Button>
+        <Button className="bg-neo4j hover:bg-neo4j-dark" onClick={() => handleFormOpenChange(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Client
+        </Button>
       </div>
-      <ClienteFormModal open={isFormOpen} onOpenChange={setIsFormOpen} onSubmit={(data) => createMutation.mutate(data)} dbType="neo4j" generos={['M','F','Otro','Masculino','Femenino']} />
+      <ClienteFormModal
+        key={editingClient?.id ?? "new"} 
+        open={isFormOpen}
+        onOpenChange={handleFormOpenChange}
+        onSubmit={onFormSubmit}
+        dbType="neo4j"
+        generos={['M','F','Otro','Masculino','Femenino']}
+        addPreferencias={false}
+        initialData={editingClient ? {
+          nombre: editingClient.nombre,
+          email: editingClient.email,
+          genero: editingClient.genero,
+          pais: editingClient.pais
+        } : undefined}
+      />
 
       <Card className="border-l-4 border-neo4j">
         <CardHeader>
@@ -62,6 +103,22 @@ const Neo4jClientes = () => {
                           {cliente.id}
                         </span>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(cliente)}
+                        disabled={updateMutation.isPending}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => onDelete(cliente)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </Card>

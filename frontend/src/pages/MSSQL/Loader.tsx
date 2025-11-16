@@ -14,20 +14,39 @@ interface ValidationError {
   error: string;
 }
 
+interface UploadStatus {
+  status: "idle" | "validating" | "uploading" | "complete" | "error";
+  message?: string;
+  progress: number;
+}
+
 const MSSQLLoader = () => {
   const [file, setFile] = useState<File | null>(null);
-  const [parsedData, setParsedData] = useState<any>(null);
-  const [isValidating, setIsValidating] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>({
+    status: "idle",
+    progress: 0
+  });
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "complete">("idle");
+  const [fileInfo, setFileInfo] = useState<{
+    name: string;
+    size: string;
+    rows?: number;
+  } | null>(null);
 
   const handleFileAccepted = async (uploadedFile: File) => {
     try {
       setFile(uploadedFile);
+      
+      // Parsear solo para mostrar info, no para enviar datos
       const data = await parseFile(uploadedFile);
-      setParsedData(data);
-      toast.success(`File parsed: ${data.rows.length} rows found`);
+      
+      setFileInfo({
+        name: uploadedFile.name,
+        size: `${(uploadedFile.size / (1024 * 1024)).toFixed(2)} MB`,
+        rows: data.rows.length
+      });
+      
+      toast.success(`File ready: ${data.rows.length} rows found`);
     } catch (error) {
       toast.error("Failed to parse file");
       console.error(error);
@@ -35,59 +54,122 @@ const MSSQLLoader = () => {
   };
 
   const handleDryRun = async () => {
-    if (!parsedData) return;
+    if (!file) return;
     
-    setIsValidating(true);
+    setUploadStatus({ status: "validating", progress: 0 });
     setValidationErrors([]);
     
     try {
-      const response = await api.post("/mssql/loader/upload?dryRun=true", {
-        rows: parsedData.rows,
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const response = await api.post("/mssql/loader/validate-file", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const progress = (progressEvent.loaded / progressEvent.total) * 100;
+            setUploadStatus(prev => ({ ...prev, progress }));
+          }
+        },
       });
       
       if (response.data.errors && response.data.errors.length > 0) {
         setValidationErrors(response.data.errors);
         toast.warning(`Validation found ${response.data.errors.length} errors`);
       } else {
-        toast.success("All rows validated successfully!");
+        toast.success("File validated successfully!");
       }
-    } catch (error) {
-      console.error("Error in MyComponent:", error);
-      toast.error("Validation failed");
+    } catch (error: any) {
+      console.error("Validation error:", error);
+      toast.error(error.response?.data?.message || "Validation failed");
     } finally {
-      setIsValidating(false);
+      setUploadStatus({ status: "idle", progress: 0 });
     }
   };
 
-  const handleUpload = async () => {
-    if (!parsedData || validationErrors.length > 0) return;
+  const handleChunkedUpload = async () => {
+    if (!file) return;
     
-    setUploadStatus("uploading");
-    setUploadProgress(0);
+    const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     
-    const chunkSize = 500;
-    const chunks = [];
-    
-    for (let i = 0; i < parsedData.rows.length; i += chunkSize) {
-      chunks.push(parsedData.rows.slice(i, i + chunkSize));
-    }
-    
+    setUploadStatus({ 
+      status: "uploading", 
+      progress: 0,
+      message: `Preparing to upload ${totalChunks} chunks...`
+    });
+
     try {
-      for (let i = 0; i < chunks.length; i++) {
-        await api.post("/mssql/loader/upload", {
-          rows: chunks[i],
-          chunkIndex: i,
-          totalChunks: chunks.length,
-        });
+      // Primero iniciar la sesión de upload
+      const initResponse = await api.post("/mssql/loader/init-upload", {
+        fileName: file.name,
+        fileSize: file.size,
+        totalChunks: totalChunks,
+        fileType: file.type
+      });
+
+      const uploadId = initResponse.data.uploadId;
+
+      // Subir cada chunk
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
         
-        setUploadProgress(((i + 1) / chunks.length) * 100);
+        const formData = new FormData();
+        formData.append("file", chunk);
+        formData.append("uploadId", uploadId);
+        formData.append("chunkIndex", chunkIndex.toString());
+        formData.append("totalChunks", totalChunks.toString());
+        formData.append("fileName", file.name);
+        formData.append("fileType", file.type);
+
+        await api.post("/mssql/loader/upload-chunk", formData, {
+          headers: { 
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const chunkProgress = (progressEvent.loaded / progressEvent.total) * (100 / totalChunks);
+              const overallProgress = (chunkIndex / totalChunks) * 100 + chunkProgress;
+              setUploadStatus(prev => ({
+                ...prev,
+                progress: overallProgress,
+                message: `Uploading chunk ${chunkIndex + 1} of ${totalChunks}`
+              }));
+            }
+          },
+        });
       }
+
+      // Finalizar el upload y procesar el archivo
+      setUploadStatus({
+        status: "uploading",
+        progress: 95,
+        message: "Processing file..."
+      });
+
+      const finalResponse = await api.post("/mssql/loader/complete-upload", {
+        uploadId: uploadId
+      });
+
+      setUploadStatus({
+        status: "complete",
+        progress: 100,
+        message: `Successfully imported ${finalResponse.data.importedRows} rows!`
+      });
+
+      toast.success(`Import completed! ${finalResponse.data.importedRows} rows imported.`);
       
-      setUploadStatus("complete");
-      toast.success(`Successfully imported ${parsedData.rows.length} rows!`);
-    } catch (error) {
-      setUploadStatus("idle");
-      console.error("Error in MyComponent:", error);
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      setUploadStatus({
+        status: "error",
+        progress: 0,
+        message: error.response?.data?.message || "Upload failed"
+      });
       toast.error("Upload failed");
     }
   };
@@ -109,6 +191,13 @@ const MSSQLLoader = () => {
       ],
       "mssql_loader_template.csv"
     );
+  };
+
+  const resetUpload = () => {
+    setFile(null);
+    setFileInfo(null);
+    setValidationErrors([]);
+    setUploadStatus({ status: "idle", progress: 0 });
   };
 
   return (
@@ -145,25 +234,52 @@ const MSSQLLoader = () => {
                 <Alert>
                   <CheckCircle className="h-4 w-4" />
                   <AlertDescription>
-                    File loaded: {file.name} • {parsedData?.rows.length || 0} rows
+                    File loaded: {fileInfo?.name} • {fileInfo?.rows || '?'} rows • {fileInfo?.size}
                   </AlertDescription>
                 </Alert>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setFile(null)}>
+                
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="outline" onClick={resetUpload}>
                     Clear File
                   </Button>
                   <Button
-                    className="bg-mssql hover:bg-mssql-dark"
+                    className="bg-yellow-600 hover:bg-yellow-700"
                     onClick={handleDryRun}
-                    disabled={isValidating}
+                    disabled={uploadStatus.status === "validating" || uploadStatus.status === "uploading"}
                   >
-                    {isValidating ? "Validating..." : "Dry Run (Validate)"}
+                    {uploadStatus.status === "validating" ? "Validating..." : "Dry Run (Validate)"}
+                  </Button>
+                  <Button
+                    className="bg-mssql hover:bg-mssql-dark"
+                    onClick={handleChunkedUpload}
+                    disabled={uploadStatus.status === "uploading" || uploadStatus.status === "validating" || validationErrors.length > 0}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Start Import
                   </Button>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Progress Indicator */}
+        {(uploadStatus.status === "validating" || uploadStatus.status === "uploading") && (
+          <Card className="border-l-4 border-blue-500">
+            <CardHeader>
+              <CardTitle>
+                {uploadStatus.status === "validating" ? "Validating File..." : "Uploading File..."}
+              </CardTitle>
+              <CardDescription>{uploadStatus.message}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Progress value={uploadStatus.progress} />
+              <p className="text-sm text-muted-foreground text-center">
+                {Math.round(uploadStatus.progress)}% • {uploadStatus.message}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {validationErrors.length > 0 && (
           <Card className="border-l-4 border-destructive">
@@ -191,38 +307,20 @@ const MSSQLLoader = () => {
           </Card>
         )}
 
-        {parsedData && validationErrors.length === 0 && uploadStatus !== "complete" && (
-          <Card className="border-l-4 border-mssql">
-            <CardHeader>
-              <CardTitle>Step 3: Import Data</CardTitle>
-              <CardDescription>Upload validated rows to database</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {uploadStatus === "uploading" && (
-                <div className="space-y-2">
-                  <Progress value={uploadProgress} />
-                  <p className="text-sm text-muted-foreground text-center">
-                    Uploading... {Math.round(uploadProgress)}%
-                  </p>
-                </div>
-              )}
-              <Button
-                className="bg-mssql hover:bg-mssql-dark"
-                onClick={handleUpload}
-                disabled={uploadStatus === "uploading"}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Start Import
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {uploadStatus === "complete" && (
-          <Alert>
+        {uploadStatus.status === "complete" && (
+          <Alert className="bg-green-50 border-green-200">
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertDescription className="text-green-600">
-              Import completed successfully! {parsedData?.rows.length} rows imported.
+              {uploadStatus.message}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {uploadStatus.status === "error" && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {uploadStatus.message}
             </AlertDescription>
           </Alert>
         )}

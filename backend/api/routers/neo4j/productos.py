@@ -1,17 +1,15 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
-from datetime import datetime
-from typing import Optional
-from api.services.mongo.productos_service import ProductoMongoService
-from api.schemas.mongo import ProductoResponse
-from api.dependencies import get_mongo_productos_service
+from api.services.neo4j.productos_service import ProductoNeo4jService
+from api.dependencies import get_neo4j_productos_service
 from api.schemas.froms import ProductoFormData
+from api.schemas.neo4j import ProductoResponse
 
-router = APIRouter(prefix="/productos", tags=["mongo-productos"])
+router = APIRouter(prefix="/productos", tags=["neo4j-productos"])
 
 @router.post("/", response_model=ProductoResponse)
 def create_producto(
     producto: ProductoFormData,
-    service: ProductoMongoService = Depends(get_mongo_productos_service)
+    service: ProductoNeo4jService = Depends(get_neo4j_productos_service)
 ):
     try:
         return service.create_producto(producto)
@@ -25,7 +23,7 @@ def create_producto(
 def get_productos(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
-    service: ProductoMongoService = Depends(get_mongo_productos_service)
+    service: ProductoNeo4jService = Depends(get_neo4j_productos_service)
 ):
     try:
         return service.get_productos(page=page, limit=limit)
@@ -40,7 +38,7 @@ def search_productos(
     query: str = Query(..., description="Search term for name or category"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
-    service: ProductoMongoService = Depends(get_mongo_productos_service)
+    service: ProductoNeo4jService = Depends(get_neo4j_productos_service)
 ):
     try:
         return service.search_productos(query=query, page=page, limit=limit)
@@ -55,7 +53,7 @@ def get_productos_by_categoria(
     categoria: str,
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
-    service: ProductoMongoService = Depends(get_mongo_productos_service)
+    service: ProductoNeo4jService = Depends(get_neo4j_productos_service)
 ):
     try:
         return service.get_productos_by_categoria(categoria=categoria, page=page, limit=limit)
@@ -68,7 +66,7 @@ def get_productos_by_categoria(
 @router.get("/{producto_id}", response_model=ProductoResponse)
 def get_producto(
     producto_id: str,
-    service: ProductoMongoService = Depends(get_mongo_productos_service)
+    service: ProductoNeo4jService = Depends(get_neo4j_productos_service)
 ):
     producto = service.get_producto_by_id(producto_id)
     if not producto:
@@ -79,7 +77,7 @@ def get_producto(
 def update_producto(
     producto_id: str,
     producto_update: ProductoFormData,
-    service: ProductoMongoService = Depends(get_mongo_productos_service)
+    service: ProductoNeo4jService = Depends(get_neo4j_productos_service)
 ):
     updated_producto = service.update_producto(producto_id, producto_update)
     if not updated_producto:
@@ -89,7 +87,7 @@ def update_producto(
 @router.delete("/{producto_id}")
 def delete_producto(
     producto_id: str,
-    service: ProductoMongoService = Depends(get_mongo_productos_service)
+    service: ProductoNeo4jService = Depends(get_neo4j_productos_service)
 ):
     if not service.delete_producto(producto_id):
         raise HTTPException(status_code=404, detail="Producto not found")

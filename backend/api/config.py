@@ -42,6 +42,18 @@ class Settings:
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY")
     
+    # Neo4j
+    NEO4J_URI = os.getenv("NEO4J_URI", "neo4j+s")
+    NEO4J_USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
+    NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+    NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
+    AURA_INSTANCEID = os.getenv("AURA_INSTANCEID", "")
+    AURA_INSTANCENAME = os.getenv("AURA_INSTANCENAME", "")
+
+    # BCCR API
+    BCCR_API_URL = os.getenv("BCCR_API_URL", "https://gee.bccr.fi.cr/Indicadores/Suscripciones/WS/wsindicadoreseconomicos.asmx/ObtenerIndicadoresEconomicos")
+    BCCR_EMAIL = os.getenv("BCCR_EMAIL", "")
+    BCCR_TOKEN = os.getenv("BCCR_TOKEN", "")
     
 
 settings = Settings()
