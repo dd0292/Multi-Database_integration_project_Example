@@ -1,17 +1,19 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { DataTable } from "../../components/common/DataTable";
 import api from "../../services/api";
-import type { SupabaseCliente } from "../../types/databases";
+import type { SupabaseCliente } from "../../types/Supabase/Cliente";
 import { ClienteFormModal } from "../../components/Sales/ClienteFormModal";
 
 const SupabaseClientes = () => {
   const [page, setPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const limit = 20;
+
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["supabase-clientes", page],
@@ -23,11 +25,22 @@ const SupabaseClientes = () => {
     },
   });
 
+  const createMutation = useMutation({
+    mutationFn: async (newCliente: Omit<SupabaseCliente, "cliente_id" | "fecha_registro">) => {
+      const response = await api.post<SupabaseCliente>("/supabase/clientes", newCliente);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supabase-clientes"] });
+      setIsFormOpen(false);
+    },
+  });
+
   const columns = [
     {
       header: "ID",
       accessor: (row: SupabaseCliente) => (
-        <span className="font-mono text-xs">{row.id?.slice(0, 8)}...</span>
+        <span className="font-mono text-xs">{row.cliente_id?.slice(0, 8)}...</span>
       ),
     },
     {
@@ -48,6 +61,10 @@ const SupabaseClientes = () => {
       header: "Country",
       accessor: (row: SupabaseCliente) => row.pais,
     },
+    {
+      header: "Registered",
+      accessor: (row: SupabaseCliente) => row.fecha_registro,
+    },
   ];
 
   return (
@@ -62,8 +79,18 @@ const SupabaseClientes = () => {
           New Client
         </Button>
       </div>
-      <ClienteFormModal open={isFormOpen} onOpenChange={setIsFormOpen} onSubmit={(data) => createMutation.mutate(data)} dbType="supabase" generos={["M", "F"]} />
-
+      <ClienteFormModal
+          open={isFormOpen}
+          onOpenChange={setIsFormOpen}
+          onSubmit={(data) =>
+            createMutation.mutate({
+              ...data,
+              genero: data.genero as "M" | "F",
+            })
+          }
+          dbType="supabase"
+          generos={["M", "F"]}
+        />
       <Card className="border-l-4 border-supabase">
         <CardHeader>
           <CardTitle>Client List</CardTitle>

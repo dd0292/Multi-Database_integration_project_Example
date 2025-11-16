@@ -1,8 +1,8 @@
 export interface SupabaseCliente {
-  id: string;
+  cliente_id: string;
   nombre: string;
   email: string;
-  genero: "Masculino" | "Femenino" | "Otro";
+  genero: "M" | "F";
   pais: string;
-  created: string;
+  fecha_registro: string;
 }

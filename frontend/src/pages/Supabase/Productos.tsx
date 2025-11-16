@@ -4,7 +4,7 @@ import { Plus, Package } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import api from "../../services/api";
-import type { SupabaseProducto } from "../../types/databases";
+import type { SupabaseProducto } from "../../types/Supabase/Producto";
 import { ProductoFormModal } from "../../components/Sales/ProductoFormModal";
 import { toast } from "sonner";
 
@@ -26,11 +26,13 @@ const SupabaseProductos = () => {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      return api.post("/supabase/productos", {
-        Nombre: data.nombre,
-        Categoria: data.categoria,
-        SKU: data.codigo,
-      });
+      // Map frontend form fields to Supabase table columns
+      const payload = {
+        nombre: data.nombre,
+        categoria: data.categoria,
+        sku: data.codigo ?? data.sku ?? null,
+      };
+      return api.post("/supabase/productos", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supabase-productos"] });
@@ -60,7 +62,7 @@ const SupabaseProductos = () => {
         onOpenChange={setIsFormOpen}
         onSubmit={(data) => createMutation.mutate(data)}
         dbType="supabase"
-        codeNeeded={false}
+        codeNeeded={true}
       />
 
       <Card className="border-l-4 border-supabase">
@@ -77,7 +79,7 @@ const SupabaseProductos = () => {
           ) : data?.data && data.data.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {data.data.map((producto) => (
-                <Card key={producto.id} className="p-4 hover:shadow-md transition-shadow">
+                <Card key={producto.producto_id} className="p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-2">
                     <Package className="h-8 w-8 text-supabase" />
                     <span className="text-xs px-2 py-1 bg-supabase-light text-supabase-dark rounded font-mono">

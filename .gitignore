@@ -12,6 +12,7 @@ build/
 
 # Environment variables
 .venv
+.backend/venv
 .env
 .env.local
 .env.development.local
