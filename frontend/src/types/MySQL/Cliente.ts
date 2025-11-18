@@ -1,7 +1,8 @@
 export interface MySQLCliente {
-  id: number;
+  id?: number;
   nombre: string;
-  email: string;
-  genero: "Masculino" | "Femenino" | "Otro";
+  correo: string;
+  genero: "M" | "F" | "X";
   pais: string;
+  created_at: string; // YYYY-MM-DD
 }
