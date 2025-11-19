@@ -16,7 +16,7 @@ class ClienteFormData(BaseModel):
 class ProductoFormData(BaseModel):
     nombre: str = Field(..., min_length=1, description="Nombre del producto")
     categoria: str = Field(..., min_length=1, description="Categoría principal del producto")
-    codigo: str = Field(..., min_length=1, description="Código único del producto")
+    sku: str = Field(..., min_length=1, description="Código único del producto")
     equivalencias: Optional[Dict[str, str]] = Field(None,description="Categorías adicionales como clave-valor")
 
 # OrdenItem Model

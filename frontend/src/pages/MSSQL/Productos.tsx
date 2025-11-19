@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { ProductoFormModal } from "../../components/Sales/ProductoFormModal";
 import { toast } from "sonner";
 import api from "../../services/api";
-import type { MSSQLProducto } from "../../types/databases";
+import type { MSSQLProducto } from "../../types/MSSQL/Producto";
 
 const MSSQLProductos = () => {
   const [page] = useState(1);
@@ -27,9 +27,9 @@ const MSSQLProductos = () => {
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       return api.post("/mssql/productos", {
-        Nombre: data.nombre,
-        Categoria: data.categoria,
-        SKU: data.codigo,
+        nombre: data.nombre,
+        categoria: data.categoria,
+        sku: data.codigo,
       });
     },
     onSuccess: () => {

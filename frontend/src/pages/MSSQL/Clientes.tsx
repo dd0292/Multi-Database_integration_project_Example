@@ -7,7 +7,7 @@ import { DataTable } from "../../components/common/DataTable";
 import { ClienteFormModal } from "../../components/Sales/ClienteFormModal";
 import { toast } from "sonner";
 import api from "../../services/api";
-import type { MSSQLCliente } from "../../types/databases";
+import type { MSSQLCliente } from "../../types/MSSQL/Cliente";
 
 const MSSQLClientes = () => {
   const [page, setPage] = useState(1);
@@ -28,10 +28,10 @@ const MSSQLClientes = () => {
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       return api.post("/mssql/clientes", {
-        Nombre: data.nombre,
-        Email: data.email,
-        Genero: data.genero,
-        Pais: data.pais,
+        nombre: data.nombre,
+        email: data.email,
+        genero: data.genero,
+        pais: data.pais,
       });
     },
     onSuccess: () => {
@@ -47,7 +47,7 @@ const MSSQLClientes = () => {
   const columns = [
     {
       header: "ID",
-      accessor: (row: MSSQLCliente) => <span className="font-mono">{row.ClienteId}</span>,
+      accessor: (row: MSSQLCliente) => <span className="font-mono">{row.id}</span>,
     },
     {
       header: "Name",

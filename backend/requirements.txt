@@ -15,3 +15,4 @@ email-validator
 polars
 pylint
 supabase
+python-multipart

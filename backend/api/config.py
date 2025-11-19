@@ -55,5 +55,16 @@ class Settings:
     BCCR_EMAIL = os.getenv("BCCR_EMAIL", "")
     BCCR_TOKEN = os.getenv("BCCR_TOKEN", "")
     
+    # MSSQL Server (general connection details)
+    SQLSERVER_HOST = os.getenv("SQLSERVER_HOST", "localhost")
+    SQLSERVER_PORT = os.getenv("SQLSERVER_PORT", "1433")
+    SQLSERVER_USER = os.getenv("SQLSERVER_USER", "sa")
+    SQLSERVER_PASSWORD = os.getenv("SQLSERVER_PASSWORD", "")
+    SQLSERVER_DRIVER = os.getenv("SQLSERVER_DRIVER", "ODBC Driver 17 for SQL Server")
+
+    # MSSQL DB names (two databases)
+    SQLSERVER_DB_DW = os.getenv("SQLSERVER_DB_DW", "Ventas_DW")
+
+    SQLSERVER_DB_TRANSAC = os.getenv("SQLSERVER_DB_TRANSAC", "Ventas_Transactional")
 
 settings = Settings()

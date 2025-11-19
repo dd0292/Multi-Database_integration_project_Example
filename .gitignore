@@ -88,3 +88,4 @@ temp/
 *.njsproj
 *.sln
 *.sw?
+frontend/package-lock.json
