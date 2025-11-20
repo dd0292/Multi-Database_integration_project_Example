@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Download, Upload, CheckCircle } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { FileUploader } from "../../components/Loader/FileUploader";
 import { Progress } from "../../components/ui/progress";
@@ -9,69 +15,79 @@ import { parseFile, generateSampleTemplate } from "../../utils/csvHelpers";
 import { toast } from "sonner";
 import api from "../../services/api";
 
+const TABLE_TEMPLATES: Record<string, string[]> = {
+  cliente: ["nombre", "correo", "genero", "pais", "created_at"],
+  producto: ["codigo_alt", "nombre", "categoria"],
+  orden: ["cliente_id", "fecha", "canal", "moneda", "total"],
+  orden_detalle: ["orden_id", "producto_id", "cantidad", "precio_unit"],
+};
+
 const MySQLLoader = () => {
+  const [selectedTable, setSelectedTable] = useState<string>("cliente");
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<any>(null);
-  //const [isValidating, setIsValidating] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "complete">("idle");
+  const [uploadStatus, setUploadStatus] = useState<
+    "idle" | "uploading" | "complete"
+  >("idle");
 
   const handleFileAccepted = async (uploadedFile: File) => {
     try {
       setFile(uploadedFile);
       const data = await parseFile(uploadedFile);
+
+      // Validate columns
+      const missing = TABLE_TEMPLATES[selectedTable].filter(
+        (col) => !data.headers.includes(col)
+      );
+
+      if (missing.length > 0) {
+        toast.error(`Missing required columns: ${missing.join(", ")}`);
+        return;
+      }
+
       setParsedData(data);
-      toast.success(`File parsed: ${data.rows.length} rows found`);
+      toast.success(`File parsed: ${data.rows.length} rows`);
     } catch (error) {
-      console.error("Error in MyComponent:", error);
       toast.error("Failed to parse file");
     }
   };
 
   const handleUpload = async () => {
     if (!parsedData) return;
-    
+
     setUploadStatus("uploading");
     setUploadProgress(0);
-    
+
     const chunkSize = 500;
     const chunks = [];
-    
+
     for (let i = 0; i < parsedData.rows.length; i += chunkSize) {
       chunks.push(parsedData.rows.slice(i, i + chunkSize));
     }
-    
+
     try {
       for (let i = 0; i < chunks.length; i++) {
         await api.post("/mysql/loader/upload", {
+          table: selectedTable,
           rows: chunks[i],
         });
+
         setUploadProgress(((i + 1) / chunks.length) * 100);
       }
-      
+
       setUploadStatus("complete");
       toast.success(`Successfully imported ${parsedData.rows.length} rows!`);
     } catch (error) {
       setUploadStatus("idle");
-      console.error("Error in MyComponent:", error);
       toast.error("Upload failed");
     }
   };
 
   const downloadTemplate = () => {
     generateSampleTemplate(
-      [
-        "cliente_email",
-        "producto_codigo_alt",
-        "fecha",
-        "canal",
-        "moneda",
-        "total",
-        "precio_unit",
-        "cantidad",
-        "metadata",
-      ],
-      "mysql_loader_template.csv"
+      TABLE_TEMPLATES[selectedTable],
+      `mysql_${selectedTable}_template.csv`
     );
   };
 
@@ -79,26 +95,62 @@ const MySQLLoader = () => {
     <div className="max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-mysql">MySQL Bulk Loader</h1>
-        <p className="text-muted-foreground mt-1">Import sales data from CSV/Excel files</p>
+        <p className="text-muted-foreground mt-1">
+          Import data into MySQL tables
+        </p>
       </div>
 
       <div className="grid gap-6">
+        {/* DROPDOWN */}
         <Card className="border-l-4 border-mysql">
           <CardHeader>
-            <CardTitle>Step 1: Download Template</CardTitle>
-            <CardDescription>Get the CSV template with correct column headers</CardDescription>
+            <CardTitle>Step 1: Select Table</CardTitle>
+            <CardDescription>
+              Choose which table you want to import data into
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <select
+              className="border p-2 rounded-md"
+              value={selectedTable}
+              onChange={(e) => {
+                setSelectedTable(e.target.value);
+                setParsedData(null);
+                setFile(null);
+                setUploadStatus("idle");
+                setUploadProgress(0);
+
+                toast.dismiss();
+              }}
+            >
+              <option value="cliente">Cliente</option>
+              <option value="producto">Producto</option>
+              <option value="orden">Orden</option>
+              <option value="orden_detalle">Orden Detalle</option>
+            </select>
+          </CardContent>
+        </Card>
+
+        {/* TEMPLATE */}
+        <Card className="border-l-4 border-mysql">
+          <CardHeader>
+            <CardTitle>Step 2: Download Template</CardTitle>
+            <CardDescription>
+              Download a CSV template for the selected table
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" onClick={downloadTemplate}>
               <Download className="h-4 w-4 mr-2" />
-              Download Sample Template
+              Download {selectedTable} template
             </Button>
           </CardContent>
         </Card>
 
+        {/* FILE UPLOAD */}
         <Card className="border-l-4 border-mysql">
           <CardHeader>
-            <CardTitle>Step 2: Upload File</CardTitle>
+            <CardTitle>Step 3: Upload File</CardTitle>
             <CardDescription>Upload your CSV or Excel file</CardDescription>
           </CardHeader>
           <CardContent>
@@ -109,7 +161,8 @@ const MySQLLoader = () => {
                 <Alert>
                   <CheckCircle className="h-4 w-4" />
                   <AlertDescription>
-                    File loaded: {file.name} • {parsedData?.rows.length || 0} rows
+                    File loaded: {file.name} • {parsedData?.rows.length || 0}{" "}
+                    rows
                   </AlertDescription>
                 </Alert>
                 <Button variant="outline" onClick={() => setFile(null)}>
@@ -120,11 +173,12 @@ const MySQLLoader = () => {
           </CardContent>
         </Card>
 
+        {/* IMPORT */}
         {parsedData && uploadStatus !== "complete" && (
           <Card className="border-l-4 border-mysql">
             <CardHeader>
-              <CardTitle>Step 3: Import Data</CardTitle>
-              <CardDescription>Upload rows to database</CardDescription>
+              <CardTitle>Step 4: Import Data</CardTitle>
+              <CardDescription>Upload rows to MySQL</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {uploadStatus === "uploading" && (
@@ -147,6 +201,7 @@ const MySQLLoader = () => {
           </Card>
         )}
 
+        {/* COMPLETE */}
         {uploadStatus === "complete" && (
           <Alert>
             <CheckCircle className="h-4 w-4 text-green-600" />
