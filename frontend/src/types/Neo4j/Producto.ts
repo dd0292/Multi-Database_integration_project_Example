@@ -5,13 +5,13 @@ export interface Neo4jProducto {
   nombre: string;
   categoria: string;
   sku: string;
-  codigo_alt?: string;
+  codigo_alt: string;
   codigo_mongo: string;
 }
 
 export const productoFormToPayload = (data: ProductoFormData) => ({
   nombre: data.nombre,
-  sku: data.codigo,
+  codigo: data.codigo,
   categoria: data.categoria,
   equivalencias: data.categoriasAdicionales
 });

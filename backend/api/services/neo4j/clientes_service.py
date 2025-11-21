@@ -69,13 +69,15 @@ class ClienteNeo4jService:
             return None
         
         update_data = cliente_update.model_dump(exclude_unset=True)
+        update_data["actualizado"] = datetime.now().isoformat()
         
         query = """
         MATCH (c:Cliente {id: $cliente_id})
         SET c.nombre = $nombre,
             c.email = $email,
             c.genero = $genero,
-            c.pais = $pais
+            c.pais = $pais,
+            c.actualuizado = $actualizado
         RETURN c
         """
         
@@ -84,7 +86,9 @@ class ClienteNeo4jService:
                                 nombre=update_data["nombre"],
                                 email=update_data["email"],
                                 genero=update_data["genero"],
-                                pais=update_data["pais"])
+                                pais=update_data["pais"],
+                                actualizado=update_data["actualizado"]
+                                )
         
         record = result.single()
         return self._cliente_helper(record["c"]) if record else None

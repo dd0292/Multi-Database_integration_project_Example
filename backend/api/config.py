@@ -64,7 +64,6 @@ class Settings:
 
     # MSSQL DB names (two databases)
     SQLSERVER_DB_DW = os.getenv("SQLSERVER_DB_DW", "Ventas_DW")
-
     SQLSERVER_DB_TRANSAC = os.getenv("SQLSERVER_DB_TRANSAC", "Ventas_Transactional")
 
 settings = Settings()

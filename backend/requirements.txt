@@ -16,3 +16,4 @@ polars
 pylint
 supabase
 python-multipart
+mysql-connector-python

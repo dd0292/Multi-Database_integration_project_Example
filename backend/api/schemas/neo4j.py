@@ -17,7 +17,6 @@ class CategoriaInfoResponse(BaseModel):
 class ProductoResponse(BaseModel):
     id: str 
     nombre: str 
-    categoria: str
     sku: Optional[str] 
     codigo_alt: Optional[str] 
     codigo_mongo: Optional[str] 
@@ -25,9 +24,7 @@ class ProductoResponse(BaseModel):
 
 class OrdenItemResponse(BaseModel):
     producto_id: str 
-    producto_nombre: str 
-    categoria: str
-    categoria_info: Optional[CategoriaInfoResponse] 
+    producto_nombre: str
     cantidad: int 
     precio_unit: float 
     descuento_pct: Optional[float] 

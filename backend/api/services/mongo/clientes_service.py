@@ -38,8 +38,9 @@ class ClienteMongoService:
             return None
             
         update_data = cliente_update.model_dump(exclude_unset=True)
-        if 'creado' in update_data:
-            del update_data['creado']
+
+        update_data.pop("creado", None)
+        update_data["actualizado"] = datetime.now()
         
         result = self.collection.update_one(
             {"_id": ObjectId(cliente_id)},

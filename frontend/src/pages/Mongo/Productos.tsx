@@ -21,7 +21,7 @@ const MongoProductos = () => {
     endpoint: "/mongo/productos",
     queryKey: "mongo-productos",
     formToPayload: productoFormToPayload,
-    onSuccessMessage: "Cliente procesado exitosamente"
+    onSuccessMessage: "Productos procesado exitosamente"
   });
 
   const {
