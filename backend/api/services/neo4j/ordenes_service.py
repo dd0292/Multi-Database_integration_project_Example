@@ -343,7 +343,6 @@ class OrdenNeo4jService:
                 items.append({
                     "producto_id": producto_props.get("id"),
                     "producto_nombre": producto_props.get("nombre"),
-                    "categoria": producto_props.get("categoria"),
                     "categoria_info": {
                         "id": categoria_props.get("id"),
                         "nombre": categoria_props.get("nombre")
@@ -364,8 +363,10 @@ class OrdenNeo4jService:
             "cliente": {
                 "id": cliente_props.get("id"),
                 "nombre": cliente_props.get("nombre"),
+                "email": cliente_props.get("email"),
                 "genero": cliente_props.get("genero"),
-                "pais": cliente_props.get("pais")
+                "pais": cliente_props.get("pais"),
+                "creado": cliente_props.get("creado")
             },
             "items": items
         }

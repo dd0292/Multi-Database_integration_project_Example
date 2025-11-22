@@ -2,7 +2,7 @@ export const convertPreferenciasToDict = (preferencias?: Array<{categoria: strin
   if (!preferencias) return undefined;
   
   return preferencias.reduce((acc, item) => {
-    acc[item.categoria] = item.texto.split(',');
+    acc[item.categoria] = item.texto.split(',').map(texto => texto.trim());
     return acc;
   }, {} as Record<string, string[]>);
 };

@@ -105,35 +105,42 @@ const Neo4jOrdenes = () => {
           ) : data?.data && data.data.length > 0 ? (
             <div className="space-y-4">
               {data.data.map((orden: any) => (
-                <Card key={orden.orden.id} className="p-5">
+                <Card key={orden.id} className="p-5">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <ShoppingCart className="h-5 w-5 text-neo4j" />
-                        <h3 className="font-semibold text-lg">Order {orden.orden.id}</h3>
-                        <Badge className={getChannelColor(orden.orden.canal)}>
-                          {orden.orden.canal}
+                        <h3 className="font-semibold text-lg">Order {orden.id}</h3>
+
+                        <Badge className={getChannelColor(orden.canal)}>
+                          {orden.canal}
                         </Badge>
                       </div>
+
                       <p className="text-sm text-muted-foreground mb-2">
                         Cliente: {orden.cliente.nombre}
                       </p>
+
                       <p className="text-sm text-muted-foreground">
-                        {new Date(orden.orden.fecha).toLocaleString()}
+                        {new Date(orden.fecha).toLocaleString()}
                       </p>
                     </div>
+
                     <div className="text-right">
                       <div className="text-2xl font-bold text-neo4j">
-                        ${orden.orden.total.toFixed(2)}
+                        ${orden.total.toFixed(2)}
                       </div>
-                      <div className="text-xs text-muted-foreground">{orden.orden.moneda}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {orden.moneda}
+                      </div>
                     </div>
                   </div>
-                  
+
                   <div className="border-t pt-3 flex items-center gap-2 text-sm text-muted-foreground">
                     <Network className="h-4 w-4" />
                     <span>{orden.items.length} product relationships</span>
                   </div>
+
 
                   <Button
                     variant="outline"

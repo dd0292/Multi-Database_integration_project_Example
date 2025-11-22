@@ -6,6 +6,7 @@ export interface Neo4jCliente {
   email: string;
   genero: "M" | "F" | "Masculino" | "Femenino" | "Otro";
   pais: string;
+  creado: string;
 }
 
 export const clienteFormToPayload = (data: ClienteFormData) => ({

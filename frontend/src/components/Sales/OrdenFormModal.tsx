@@ -252,30 +252,54 @@ export function OrdenFormModal({
               <div key={field.id} className="flex gap-2 items-start p-3 border rounded-lg">
                 <div className="flex-1 space-y-2">
                   {/* Producto - Using Controller for each item */}
-                  <Controller
-                    name={`items.${index}.producto_id`}
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger className="text-xs">
-                          <SelectValue placeholder="Seleccionar producto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {productos?.map((producto: any) => (
-                            <SelectItem 
-                              key={producto._id || producto.id || producto.ProductoId || producto.producto_id} 
-                              value={String(producto._id || producto.id || producto.ProductoId || producto.producto_id)}
-                            >
-                              {producto.nombre || producto.Nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
+                  <div className="flex-1 space-y-2">
+                    <Controller
+                      name={`items.${index}.producto_id`}
+                      control={control}
+                      rules={{ required: "Debe seleccionar un producto" }}  
+                      render={({ field, fieldState }) => (
+                        <div>
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                          >
+                            <SelectTrigger className="text-xs">
+                              <SelectValue placeholder="Seleccionar producto" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              {productos?.map((producto: any) => (
+                                <SelectItem
+                                  key={
+                                    producto._id ||
+                                    producto.id ||
+                                    producto.ProductoId ||
+                                    producto.producto_id
+                                  }
+                                  value={String(
+                                    producto._id ||
+                                    producto.id ||
+                                    producto.ProductoId ||
+                                    producto.producto_id
+                                  )}
+                                >
+                                  {producto.nombre || producto.Nombre}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {/* Error message */}
+                          {fieldState.error && (
+                            <p className="text-sm text-destructive">
+                              {fieldState.error.message}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    />
+                  </div>
+
 
                   <div className={`grid gap-2 ${addDescuentoPct ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <div className="space-y-1">
@@ -295,7 +319,7 @@ export function OrdenFormModal({
                       <Input
                         type="number"
                         min="0"
-                        step="0.01"
+                        step="5"
                         {...register(`items.${index}.precio_unit`, { 
                           valueAsNumber: true, 
                           min: 0 
@@ -310,7 +334,7 @@ export function OrdenFormModal({
                           type="number"
                           min="0"
                           max="100"
-                          step="0.01"
+                          step="0.5"
                           {...register(`items.${index}.descuento_pct`, { 
                             valueAsNumber: true,
                             min: 0,

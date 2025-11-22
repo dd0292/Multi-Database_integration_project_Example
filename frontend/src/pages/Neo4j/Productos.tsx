@@ -1,4 +1,4 @@
-import { Plus, Network, Package } from "lucide-react";
+import { Plus, Network, Package, Edit, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { ProductoFormModal } from "../../components/Sales/ProductoFormModal";
@@ -21,7 +21,7 @@ const Neo4jProductos = () => {
     endpoint: "/neo4j/productos",
     queryKey: "neo4j-productos",
     formToPayload: productoFormToPayload,
-    onSuccessMessage: "Cliente procesado exitosamente"
+    onSuccessMessage: "Producto procesado exitosamente"
   });
 
   const {
@@ -102,6 +102,22 @@ const Neo4jProductos = () => {
                   {producto.categoria && (
                     <p className="text-sm text-muted-foreground">{producto.categoria}</p>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(producto)}
+                    disabled={updateMutation.isPending}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => onDelete(producto)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </Card>
               ))}
             </div>

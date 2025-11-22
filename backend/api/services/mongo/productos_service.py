@@ -64,6 +64,8 @@ class ProductoMongoService:
         # Don't allow updating created timestamp
         if 'creado' in update_data:
             del update_data['creado']
+
+        update_data["actualizado"] = datetime.now()
         
         result = self.collection.update_one(
             {"_id": ObjectId(producto_id)},
