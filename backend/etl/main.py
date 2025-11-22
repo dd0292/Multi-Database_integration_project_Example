@@ -3,6 +3,7 @@ from etl.mongo_to_dw import run_mongo_etl
 from etl.neo4j_to_dw import run_neo4j_etl
 from etl.supabase_to_dw import run_supabase_etl
 from etl.mssql_to_dw import run_mssql_etl
+from etl.staging_to_dw import run_staging_to_dw
 def run_all():
     print(" Empezando procesos ETL")
 
@@ -20,6 +21,9 @@ def run_all():
 
     print("Corriendo ETL MS SQL Server…")
     run_mssql_etl()
+
+    print("Corriendo ETL DW...")
+    run_staging_to_dw()
     print("ETLs completados.")
 
 if __name__ == "__main__":

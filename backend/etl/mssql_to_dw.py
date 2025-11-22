@@ -1,29 +1,39 @@
-import pyodbc
+import os
 from decimal import Decimal
 from datetime import datetime
-import os
+import pyodbc
 from dotenv import load_dotenv
+from decimal import Decimal, ROUND_HALF_UP
+
+from etl.transformations.unify_gender import unify_gender
 
 load_dotenv()
 
-from etl.transformations.unify_gender import unify_gender
+
 def get_mssql_source_conn():
+    """Conexión al SQL Server transaccional (Ventas_Transactional)."""
     return pyodbc.connect(
         f"DRIVER={os.getenv('SQLSERVER_DRIVER')};"
         f"SERVER={os.getenv('SQLSERVER_HOST')},{os.getenv('SQLSERVER_PORT')};"
         f"DATABASE={os.getenv('SQLSERVER_DB_TRANSAC')};"
         f"UID={os.getenv('SQLSERVER_USER')};"
         f"PWD={os.getenv('SQLSERVER_PASSWORD')};"
+        "Encrypt=no;TrustServerCertificate=yes;"
     )
 
+
 def get_sqlsrv_dw_conn():
+    """Conexión al DW (Ventas_DW)."""
     return pyodbc.connect(
         f"DRIVER={os.getenv('SQLSERVER_DRIVER')};"
         f"SERVER={os.getenv('SQLSERVER_HOST')},{os.getenv('SQLSERVER_PORT')};"
         f"DATABASE={os.getenv('SQLSERVER_DB_DW')};"
         f"UID={os.getenv('SQLSERVER_USER')};"
         f"PWD={os.getenv('SQLSERVER_PASSWORD')};"
+        "Encrypt=no;TrustServerCertificate=yes;"
     )
+
+
 def extract_mssql_data():
     try:
         conn = get_mssql_source_conn()
@@ -42,20 +52,20 @@ def extract_mssql_data():
             o.Canal,
             o.Moneda,
             o.Total,
-            c.Nombre as ClienteNombre,
-            c.Genero as ClienteGenero,
-            c.Pais as ClientePais,
-            p.Nombre as ProductoNombre,
+            c.Nombre  AS ClienteNombre,
+            c.Genero  AS ClienteGenero,
+            c.Pais    AS ClientePais,
+            p.Nombre  AS ProductoNombre,
             p.SKU,
-            p.Categoria as ProductoCategoria
-        FROM sales_ms.OrdenDetalle od
-        JOIN sales_ms.Orden o ON od.OrdenId = o.OrdenId
-        JOIN sales_ms.Cliente c ON o.ClienteId = c.ClienteId
-        JOIN sales_ms.Producto p ON od.ProductoId = p.ProductoId
+            p.Categoria AS ProductoCategoria
+        FROM dbo.OrdenDetalle od
+        JOIN dbo.Orden o   ON od.OrdenId = o.OrdenId
+        JOIN dbo.Cliente c ON o.ClienteId = c.ClienteId
+        JOIN dbo.Producto p ON od.ProductoId = p.ProductoId
         """
-
         cur.execute(query)
-        rows = [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+        cols = [d[0] for d in cur.description]
+        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
 
         cur.close()
         conn.close()
@@ -65,78 +75,146 @@ def extract_mssql_data():
         print(f"[MS SQL] Error extrayendo datos: {e}")
         return []
 
-def transform_mssql_rows(rows):
-    if not rows:
-        return []
 
-    final = []
-
-    for r in rows:
-        try:
-            fecha = r["Fecha"]
-            if isinstance(fecha, str):
-                fecha = datetime.fromisoformat(fecha)
-
-            genero = unify_gender(r["ClienteGenero"])
-
-            precio = Decimal(str(r["PrecioUnit"]))
-            cantidad = r["Cantidad"]
-            descuento = Decimal(str(r["DescuentoPct"] or 0))
-
-            monto = (precio * cantidad) * (1 - descuento / 100)
-
-            final.append((
-                "MS_SQL",
-                r["OrdenId"],
-                r["ProductoId"],
-                r["ClienteId"],
-                r["SKU"],
-                r["ClienteNombre"],
-                genero,
-                r["ClientePais"],
-                r["ProductoNombre"],
-                r["ProductoCategoria"],
-                fecha,
-                r["Canal"],
-                monto,
-                cantidad
-            ))
-
-        except Exception as e:
-            print(f"[MS SQL] Error transformando fila: {e}")
-            continue
-
-    return final
-def load_mssql_staging(rows):
-    if not rows:
-        print("[MS SQL] No hay datos para cargar")
-        return
-
+def load_mssql_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, rows_fact):
     conn = get_sqlsrv_dw_conn()
     cur = conn.cursor()
     cur.fast_executemany = True
 
-    try:
+    if rows_cliente:
+        cur.executemany("""
+            INSERT INTO stg.Cliente
+            (SourceSystem, SourceClienteID, Nombre, Email, Genero, Pais, FechaRegistro)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, rows_cliente)
+
+    if rows_producto:
+        cur.executemany("""
+            INSERT INTO stg.Producto
+            (SourceSystem, SourceProductoID, SKU, CodigoAlterno, CodigoMongo, CodigoNeo4j, Nombre, Categoria)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, rows_producto)
+
+    if rows_tiempo:
+        cur.executemany("""
+            INSERT INTO stg.Tiempo (Fecha)
+            VALUES (?)
+        """, rows_tiempo)
+
+    if rows_canal:
+        cur.executemany("""
+            INSERT INTO stg.Canal (SourceSystem, Canal)
+            VALUES (?, ?)
+        """, rows_canal)
+
+    if rows_fact:
         cur.executemany("""
             INSERT INTO stg.FactVentas_MSSQL (
-                source_system, source_order_id, source_producto_id, source_cliente_id,
-                sku_oficial, ClienteNombre, ClienteGenero, ClientePais,
+                SourceSystem, Source_Order_Id, Source_Producto_Id, Source_Cliente_Id,
+                SKU_Oficial, ClienteNombre, ClienteGenero, ClientePais,
                 ProductoNombre, ProductoCategoria, FechaOrden, Canal,
                 MontoUSD, Cantidad
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, rows)
+            )
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, rows_fact)
 
-        conn.commit()
-        print(f"[MS SQL] Cargados {len(rows)} registros")
-    except Exception as e:
-        print(f"[MS SQL] Error cargando datos: {e}")
-        conn.rollback()
-    finally:
-        cur.close()
-        conn.close()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 def run_mssql_etl():
-    print("\nETL MS SQL a DW")
-    raw = extract_mssql_data()
-    transformed = transform_mssql_rows(raw)
-    load_mssql_staging(transformed)
-    print("ETL MS SQL completado\n")
+    print("\n[MS SQL] Iniciando ETL → STAGING")
+    rows = extract_mssql_data()
+    if not rows:
+        print("[MS SQL] No hay datos")
+        return
+
+    staging_cliente = []
+    staging_producto = []
+    staging_tiempo = []
+    staging_canal = []
+    staging_fact = []
+
+    seen_clients = set()
+    seen_products = set()
+    seen_dates = set()
+    seen_channels = set()
+
+    for r in rows:
+        # Fecha
+        fecha = r["Fecha"]
+        if isinstance(fecha, str):
+            fecha = datetime.fromisoformat(fecha)
+
+        # Género
+        genero = unify_gender(r["ClienteGenero"])
+
+        # Monto en USD (esta fuente siempre USD)
+        precio = Decimal(str(r["PrecioUnit"]))
+        cantidad = int(r["Cantidad"])
+        descuento = Decimal(str(r["DescuentoPct"] or 0))
+        monto = (precio * cantidad) * (1 - descuento / Decimal("100"))
+        monto = monto.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        # ----- Cliente -----
+        cliente_key = f"MSSQL|{r['ClienteId']}"
+        if cliente_key not in seen_clients:
+            seen_clients.add(cliente_key)
+            staging_cliente.append((
+                "MSSQL",
+                str(r["ClienteId"]),
+                r["ClienteNombre"],
+                None,
+                genero,
+                r["ClientePais"],
+                fecha.date()
+            ))
+
+        # ----- Producto -----
+        prod_key = f"MSSQL|{r['ProductoId']}"
+        if prod_key not in seen_products:
+            seen_products.add(prod_key)
+            staging_producto.append((
+                "MSSQL",
+                str(r["ProductoId"]),
+                r["SKU"],          # SKU oficial
+                None,              # CodigoAlterno
+                None,              # CodigoMongo
+                None,              # CodigoNeo4j
+                r["ProductoNombre"],
+                r["ProductoCategoria"],
+            ))
+
+        # ----- Tiempo -----
+        if fecha.date() not in seen_dates:
+            seen_dates.add(fecha.date())
+            staging_tiempo.append((fecha.date(),))
+
+        # ----- Canal -----
+        canal = r["Canal"] or "WEB"
+        if canal not in seen_channels:
+            seen_channels.add(canal)
+            staging_canal.append(("MSSQL", canal))
+
+        # ----- Fact -----
+        staging_fact.append((
+            "MSSQL",
+            str(r["OrdenId"]),
+            str(r["ProductoId"]),
+            str(r["ClienteId"]),
+            r["SKU"],                 # SKU_Oficial
+            r["ClienteNombre"],
+            genero,
+            r["ClientePais"],
+            r["ProductoNombre"],
+            r["ProductoCategoria"],
+            fecha,
+            canal,
+            monto,
+            cantidad,
+        ))
+
+    load_mssql_staging(staging_cliente, staging_producto, staging_tiempo, staging_canal, staging_fact)
+    print(f"[MS SQL] ETL → STAGING completado. "
+          f"Clientes={len(staging_cliente)}, Productos={len(staging_producto)}, Ventas={len(staging_fact)}\n")
