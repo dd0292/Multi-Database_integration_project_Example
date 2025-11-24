@@ -88,6 +88,7 @@ const Neo4jOrdenes = () => {
         dbType="neo4j"
         canales={["WEB", "TIENDA", "APP"]}
         monedas={["CRC", "USD"]}
+        addRecomendations = {true}
         initialData={editingClient!}
       />
 
@@ -128,7 +129,7 @@ const Neo4jOrdenes = () => {
 
                     <div className="text-right">
                       <div className="text-2xl font-bold text-neo4j">
-                        ${orden.total.toFixed(2)}
+                        {formatCurrency(orden.total || 0, orden.moneda)}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {orden.moneda}

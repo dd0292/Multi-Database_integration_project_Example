@@ -94,6 +94,7 @@ const MongoOrdenes = () => {
         monedas={["CRC"]}
         addDescuentoPct = {true}
         extraInfo = {true}
+        addRecomendations = {true}
         initialData={editingClient!}
       />
 

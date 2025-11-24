@@ -10,6 +10,8 @@ import { Textarea } from "../../components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import api from "../../services/api";
 import type { OrdenFormData, OrdenFormModalProps, OrdenItem } from "../../types/iOrden";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { useState, useEffect } from "react";
 
 export function OrdenFormModal({
   open,
@@ -20,7 +22,8 @@ export function OrdenFormModal({
   canales,
   addDescuentoPct = false,
   extraInfo = false,
-  initialData
+  initialData,
+  addRecomendations = false
 }: OrdenFormModalProps) {
   const { 
     register, 
@@ -41,6 +44,8 @@ export function OrdenFormModal({
       total: 0
     },
   });
+
+  const [recomendaciones, setRecomendaciones] = useState<any[]>([]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -112,6 +117,39 @@ export function OrdenFormModal({
   const addItem = () => {
     append({ producto_id: "", cantidad: 1, precio_unit: 0, descuento_pct: 0 });
   };
+
+  async function fetchRecomendaciones(productosSeleccionados: string[]) {
+    if (!addRecomendations) return;
+
+    if (!productosSeleccionados || productosSeleccionados.length === 0) {
+      setRecomendaciones([]);
+      return;
+    }
+
+    const productosStr = productosSeleccionados.join(",");
+    const fuente = dbType.toUpperCase(); // "MONGO", "MYSQL", etc.
+
+    try {
+      const response = await api.get(
+        `/apriori/recomendar?productos=${productosStr}&fuente=${fuente}`
+      );
+      setRecomendaciones(response.data || []);
+    } catch (error) {
+      console.error("Error obteniendo recomendaciones:", error);
+      setRecomendaciones([]);
+    }
+  }
+
+  useEffect(() => {
+  if (!addRecomendations) return;
+
+  // Extraer SOLO los productos válidos
+  const productosSeleccionados = watchedItems
+    .map((i) => i.producto_id)
+    .filter((id) => id && id !== "");
+
+  fetchRecomendaciones(productosSeleccionados);
+}, [watchedItems]);
 
   return (
     <FormModal
@@ -381,6 +419,76 @@ export function OrdenFormModal({
             ))}
           </div>
         </div>
+
+        {/* === RECOMENDACIONES APRIORI === */}
+        {addRecomendations && (
+          <Card className="mt-4 border-primary/30">
+            <CardHeader>
+              <CardTitle className="text-sm">Recomendaciones de productos</CardTitle>
+            </CardHeader>
+
+            <CardContent className="space-y-2">
+
+              {/* Caso 1: no hay productos del usuario */}
+              {watchedItems.every((i) => !i.producto_id) && (
+                <p className="text-xs text-muted-foreground">
+                  Selecciona uno o más productos para generar recomendaciones.
+                </p>
+              )}
+
+              {/* Caso 2: Apriori no encontró nada */}
+              {watchedItems.some((i) => i.producto_id) &&
+                recomendaciones.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No hay recomendaciones disponibles.
+                </p>
+              )}
+
+              {/* Caso 3: Mostrar recomendaciones */}
+              {recomendaciones.length > 0 && (
+                <div className="space-y-2">
+                  {recomendaciones.map((rec, idx) => {
+                    const recomendados = rec.consecuente;
+
+                    return (
+                      <div
+                        key={idx}
+                        className="p-2 border rounded-md bg-muted/40 flex items-center justify-between"
+                      >
+                        <div className="text-xs">
+                          <p className="font-medium">Basado en: {rec.antecedente.join(", ")}</p>
+                          <p>Sugerido: {recomendados.join(", ")}</p>
+                          <p className="text-muted-foreground">
+                            Confianza: {(rec.confianza * 100).toFixed(1)}% • Lift: {rec.lift.toFixed(2)}
+                          </p>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs ml-3"
+                          type="button"
+                          onClick={() => {
+                            for (const prod of recomendados) {
+                              append({
+                                producto_id: prod,
+                                cantidad: 1,
+                                precio_unit: 0,
+                                descuento_pct: 0
+                              });
+                            }
+                          }}
+                        >
+                          Agregar
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Order Summary */}
         <div className="pt-2 border-t space-y-2">

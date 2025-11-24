@@ -61,7 +61,15 @@ const SupabaseOrdenes = () => {
           New Order
         </Button>
       </div>
-  <OrdenFormModal open={isFormOpen} onOpenChange={setIsFormOpen} onSubmit={(data) => createMutation.mutate(data)} dbType="supabase" monedas={["USD","CRC"]} canales={["WEB","APP","PARTNER"]} />
+  <OrdenFormModal 
+    open={isFormOpen} 
+    onOpenChange={setIsFormOpen} 
+    onSubmit={(data) => createMutation.mutate(data)} 
+    dbType="supabase" 
+    monedas={["USD","CRC"]} 
+    canales={["WEB","APP","PARTNER"]}
+    addRecomendations = {true}
+  />
 
       <Card className="border-l-4 border-supabase">
         <CardHeader>

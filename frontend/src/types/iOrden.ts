@@ -25,4 +25,5 @@ export interface OrdenFormModalProps {
   addDescuentoPct?: boolean;
   extraInfo?: boolean;
   initialData?: Partial<OrdenFormData>;
+  addRecomendations?: boolean;
 }
