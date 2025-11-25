@@ -1,25 +1,25 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { DataTable } from "../../components/common/DataTable";
+import { toast } from "sonner";
 import api from "../../services/api";
 import type { SupabaseCliente } from "../../types/Supabase/Cliente";
 import { ClienteFormModal } from "../../components/Sales/ClienteFormModal";
 
 const SupabaseClientes = () => {
-  const [page, setPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const limit = 20;
+  const [editingCliente, setEditingCliente] = useState<SupabaseCliente | null>(null);
 
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["supabase-clientes", page],
+    queryKey: ["supabase-clientes"],
     queryFn: async () => {
       const response = await api.get<{ data: SupabaseCliente[]; total: number }>(
-        `/supabase/clientes?page=${page}&limit=${limit}`
+        `/supabase/clientes?page=1&limit=10000`
       );
       return response.data;
     },
@@ -35,6 +35,55 @@ const SupabaseClientes = () => {
       setIsFormOpen(false);
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: async (cliente: SupabaseCliente) => {
+      const response = await api.patch<SupabaseCliente>(
+        `/supabase/clientes/${cliente.cliente_id}`,
+        {
+          nombre: cliente.nombre,
+          email: cliente.email,
+          genero: cliente.genero,
+          pais: cliente.pais,
+        }
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supabase-clientes"] });
+      setEditingCliente(null);
+      setIsFormOpen(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (clienteId: string) => {
+      await api.delete(`/supabase/clientes/${clienteId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supabase-clientes"] });
+    },
+    onError: (error: any) => {
+      // Assume all 500s are FK constraint violations
+      if (error.response?.status === 500) {
+        toast.error(
+          "Cannot delete: This client is referenced by other entities. Please delete those records first."
+        );
+        return;
+      }
+      toast.error("Cannot delete: This client is referenced by other entities. Please delete those records first.");
+    },
+  });
+
+  const handleDelete = (cliente: SupabaseCliente) => {
+    if (
+      window.confirm(
+        `Are you sure you want to delete client "${cliente.nombre}"? This action is permanent.`
+      )
+    ) {
+      deleteMutation.mutate(cliente.cliente_id);
+    }
+  };
 
   const columns = [
     {
@@ -65,6 +114,30 @@ const SupabaseClientes = () => {
       header: "Registered",
       accessor: (row: SupabaseCliente) => row.fecha_registro,
     },
+    {
+      header: "Actions",
+      accessor: (row: SupabaseCliente) => (
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setEditingCliente(row);
+              setIsFormOpen(true);
+            }}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Edit"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => handleDelete(row)}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -81,15 +154,27 @@ const SupabaseClientes = () => {
       </div>
       <ClienteFormModal
           open={isFormOpen}
-          onOpenChange={setIsFormOpen}
-          onSubmit={(data) =>
-            createMutation.mutate({
-              ...data,
-              genero: data.genero as "M" | "F",
-            })
-          }
+          onOpenChange={(open) => {
+            setIsFormOpen(open);
+            if (!open) setEditingCliente(null);
+          }}
+          onSubmit={(data) => {
+            if (editingCliente) {
+              updateMutation.mutate({
+                ...editingCliente,
+                ...data,
+                genero: data.genero as "M" | "F",
+              });
+            } else {
+              createMutation.mutate({
+                ...data,
+                genero: data.genero as "M" | "F",
+              });
+            }
+          }}
           dbType="supabase"
           generos={["M", "F"]}
+          initialData={editingCliente || undefined}
         />
       <Card className="border-l-4 border-supabase">
         <CardHeader>
@@ -101,9 +186,6 @@ const SupabaseClientes = () => {
             data={data?.data || []}
             columns={columns}
             isLoading={isLoading}
-            page={page}
-            totalPages={Math.ceil((data?.total || 0) / limit)}
-            onPageChange={setPage}
             emptyMessage="No clients found. Create your first client!"
           />
         </CardContent>
