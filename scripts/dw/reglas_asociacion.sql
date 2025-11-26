@@ -1,4 +1,4 @@
-CREATE TABLE dwh.ReglasAsociacion (
+CREATE TABLE dbo.ReglasAsociacion (
     ReglaID INT IDENTITY(1,1) PRIMARY KEY,
     Fuente NVARCHAR(20) NOT NULL,                -- 'MSSQL', 'MYSQL', 'MONGO', 'SUPABASE', 'NEO4J'
     Antecedente NVARCHAR(MAX) NOT NULL,          -- JSON array

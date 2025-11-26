@@ -15,13 +15,13 @@ import {
 const databases = [
   {
     name: "MongoDB",
-    path: "/mongo",
+    path: "/mongodb",
     color: "mongo",
     icon: Database,
     items: [
-      { title: "Clientes", path: "/mongo/clientes", icon: Users },
-      { title: "Productos", path: "/mongo/productos", icon: Package },
-      { title: "Órdenes", path: "/mongo/ordenes", icon: ShoppingCart },
+      { title: "Clientes", path: "/mongodb/clientes", icon: Users },
+      { title: "Productos", path: "/mongodb/productos", icon: Package },
+      { title: "Órdenes", path: "/mongodb/ordenes", icon: ShoppingCart },
     ],
   },
   {

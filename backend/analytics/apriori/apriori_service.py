@@ -2,7 +2,7 @@ import json
 from sqlalchemy import text
 
 from api.config import settings
-from api.database.mssql_connection import get_engine
+from api.database.mssql_connection import get_connection
 
 
 def obtener_recomendaciones(productos: list[str], fuente: str):
@@ -11,10 +11,10 @@ def obtener_recomendaciones(productos: list[str], fuente: str):
     usando únicamente el sistema de conexión existente de SQL Server.
     
     productos: lista de ProductoID como STR (porque vienen del query del frontend)
-    fuente: 'MSSQL' | 'MYSQL' | 'MONGO' | 'SUPABASE' | 'NEO4J'
+    fuente: 'MSSQL' | 'MYSQL' | 'MONGODB' | 'SUPABASE' | 'NEO4J'
     """
 
-    engine = get_engine(settings.SQLSERVER_DB_DW)
+    engine = get_connection(settings.SQLSERVER_DB_DW)
 
     # 1. Obtener reglas de la fuente específica
     query = text("""
@@ -24,8 +24,8 @@ def obtener_recomendaciones(productos: list[str], fuente: str):
             Soporte,
             Confianza,
             Lift
-        FROM dwh.ReglasAsociacion
-        WHERE Fuente = :fuente
+        FROM dbo.ReglasAsociacion
+        WHERE UPPER(Fuente) = UPPER(:fuente)
     """)
 
     rows = engine.execute(query, {"fuente": fuente}).fetchall()

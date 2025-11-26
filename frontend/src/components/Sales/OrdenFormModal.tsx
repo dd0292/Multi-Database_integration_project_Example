@@ -34,14 +34,15 @@ export function OrdenFormModal({
     setValue,
     formState: { errors } 
   } = useForm<OrdenFormData>({
-    defaultValues: initialData || {
+    defaultValues: {
       cliente_id: "",
-      fecha: new Date().toISOString().split("T")[0],
-      canal: canales[0] || "",
-      moneda: monedas[0] || "",
+      fecha: new Date().toISOString().split("T")[0], // Default to today
+      canal: canales[0], // Default to first canal
+      moneda: monedas[0], // Default to first moneda
       items: [{ producto_id: "", cantidad: 1, precio_unit: 0, descuento_pct: 0 }],
       descripcion: "",
-      total: 0
+      total: 0,
+      ...initialData // This should override the defaults
     },
   });
 

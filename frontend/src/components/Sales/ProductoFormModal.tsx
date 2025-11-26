@@ -35,7 +35,7 @@ export function ProductoFormModal({
         return "SKU";
       case "mysql":
         return "Código Alt";
-      case "mongo":
+      case "mongodb":
         return "Código Mongo";
       default:
         return "Código";

@@ -14,6 +14,9 @@ const Neo4jProductos = () => {
     data,
     isLoading,
     error,
+    page,
+    setPage,
+    totalPages,
     createMutation,
     updateMutation,
     deleteMutation,
@@ -73,7 +76,11 @@ const Neo4jProductos = () => {
         initialData={editingClient ? {
           nombre: editingClient.nombre,
           categoria: editingClient.categoria,
-          codigo: editingClient.sku
+          codigo: editingClient.sku,
+          categoriasAdicionales: {
+            codigo_alt: editingClient.codigo_alt,
+            codigo_mongo: editingClient.codigo_mongo
+          }
         } : undefined}
       />
 
@@ -127,6 +134,39 @@ const Neo4jProductos = () => {
             </div>
           )}
         </CardContent>
+        {data?.data && data.data.length > 0 && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6 pb-4 px-6 bg-gray-50/50 dark:bg-gray-900/50 rounded-b-lg">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-2 order-2 sm:order-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                  className="min-w-[100px]"
+                >
+                  Previous
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                  className="min-w-[100px]"
+                >
+                  Next
+                </Button>
+              </div>
+              
+              <div className="order-1 sm:order-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 px-3 py-1 rounded-md border shadow-sm">
+                  Page {page} of {totalPages}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

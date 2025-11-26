@@ -13,7 +13,7 @@ export interface ClienteFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: ClienteFormData) => void;
-  dbType: "mongo" | "mssql" | "mysql" | "supabase" | "neo4j";
+  dbType: "mongodb" | "mssql" | "mysql" | "supabase" | "neo4j";
   initialData?: Partial<ClienteFormData>;
   generos: Array<string>;
   addPreferencias?: boolean;

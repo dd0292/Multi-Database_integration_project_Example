@@ -17,9 +17,9 @@ def cargar_dataset(fuente: str):
     engine = get_engine(settings.SQLSERVER_DB_DW)
 
     query = text("""
-        SELECT Transaccion, ProductoID, FuenteOrigen
-        FROM dwh.vwAprioriDataset
-        WHERE FuenteOrigen = :fuente
+        SELECT Transaccion, ProductoID, SourceSystem
+        FROM dbo.vwAprioriDataset
+        WHERE UPPER(SourceSystem) = UPPER(:fuente)
     """)
 
     df = pd.read_sql(query, engine, params={"fuente": fuente})
@@ -40,11 +40,25 @@ def generar_one_hot(df: pd.DataFrame):
 
 
 def guardar_reglas(rules, fuente: str):
-    """
-    Inserta reglas en dwh.ReglasAsociacion usando get_engine.
-    """
     engine = get_engine(settings.SQLSERVER_DB_DW)
 
+    # Filter out invalid rules before saving
+    valid_rules = rules[
+        (rules['support'] > 0) & 
+        (rules['confidence'] > 0) & 
+        (rules['lift'].notna())
+    ]
+    
+    if valid_rules.empty:
+        print(f"[{fuente}] No valid rules to save.")
+        return
+
+    # 1. Eliminar reglas antiguas de esa misma fuente
+    with engine.connect() as conn:
+        conn.execute(text("DELETE FROM dbo.ReglasAsociacion WHERE UPPER(Fuente) = UPPER(:f)"), {"f": fuente})
+        conn.commit()
+
+    # 2. Preparar nuevas reglas
     df = pd.DataFrame({
         "Fuente": fuente,
         "Antecedente": rules["antecedents"].apply(lambda s: json.dumps(list(s))),
@@ -54,10 +68,11 @@ def guardar_reglas(rules, fuente: str):
         "Lift": rules["lift"],
     })
 
+    # 3. Insertar reglas nuevas
     df.to_sql(
         "ReglasAsociacion",
         engine,
-        schema="dwh",
+        schema="dbo",
         if_exists="append",
         index=False
     )
@@ -102,15 +117,11 @@ def procesar_fuente(fuente: str):
     print(f"[{fuente}] Reglas guardadas exitosamente.")
 
 
-def main():
+def run_apriori():
     """
     Ejecuta Apriori para cada fuente posible dentro del DW.
     """
-    fuentes = ["MSSQL", "MYSQL", "MONGO", "SUPABASE", "NEO4J"]
+    fuentes = ["MONGODB", "SUPABASE", "NEO4J"]
 
     for f in fuentes:
         procesar_fuente(f)
-
-
-if __name__ == "__main__":
-    main()

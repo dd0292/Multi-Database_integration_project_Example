@@ -87,10 +87,7 @@ class ProductoNeo4jService:
         for record in result:
             producto = self._producto_helper(record["p"])
             categoria = dict(record["c"].items())
-            producto["categoria_info"] = {
-                "id": categoria.get("id"),
-                "nombre": categoria.get("nombre")
-            }
+            producto["categoria"] = categoria.get("nombre")
             productos.append(producto)
 
         return {
@@ -171,10 +168,7 @@ class ProductoNeo4jService:
 
         producto = self._producto_helper(record["p"])
         categoria = dict(record["new_cat"].items())
-        producto["categoria_info"] = {
-            "id": categoria.get("id"),
-            "nombre": categoria.get("nombre")
-        }
+        producto["categoria"] = categoria.get("nombre")
         return producto
 
     # ----------------------------------------------------

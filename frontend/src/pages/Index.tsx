@@ -7,7 +7,7 @@ const databases = [
     name: "MongoDB",
     description: "Document-based NoSQL database",
     color: "mongo",
-    path: "/mongo/clientes",
+    path: "/mongodb/clientes",
     icon: "🟡",
   },
   {

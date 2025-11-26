@@ -54,9 +54,9 @@ const App = () => (
               <div className="flex-1 p-6">
                 <Routes>
                   <Route path="/" element={<Index />} />
-                  <Route path="/mongo/clientes" element={<MongoClientes />} />
-                  <Route path="/mongo/productos" element={<MongoProductos />} />
-                  <Route path="/mongo/ordenes" element={<MongoOrdenes />} />
+                  <Route path="/mongodb/clientes" element={<MongoClientes />} />
+                  <Route path="/mongodb/productos" element={<MongoProductos />} />
+                  <Route path="/mongodb/ordenes" element={<MongoOrdenes />} />
                   <Route path="/mssql/clientes" element={<MSSQLClientes />} />
                   <Route path="/mssql/productos" element={<MSSQLProductos />} />
                   <Route path="/mssql/ordenes" element={<MSSQLOrdenes />} />
