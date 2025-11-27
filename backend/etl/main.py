@@ -4,9 +4,14 @@ from etl.neo4j_to_dw import run_neo4j_etl
 from etl.supabase_to_dw import run_supabase_etl
 from etl.mssql_to_dw import run_mssql_etl
 from etl.staging_to_dw import run_staging_to_dw
+from etl.bccr_to_staging import run_bccr_etl
+
 def run_all():
     print(" Empezando procesos ETL")
 
+    print("Cargando tipo de cambio del BCCR")
+    run_bccr_etl()
+    
     print("Corriendo ETL MySQL…")
     run_mysql_etl()
 
