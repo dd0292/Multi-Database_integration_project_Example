@@ -55,9 +55,6 @@ def load_dim_cliente(cur):
 # ------------------------------------------------------------
 def load_dim_producto(cur):
 
-    # ======================================================================
-    # 0) NORMALIZAR CAMPOS (UPPER + TRIM)
-    # ======================================================================
     cur.execute("""
         UPDATE stg.Producto
         SET
@@ -69,57 +66,34 @@ def load_dim_producto(cur):
             SourceSystem  = UPPER(LTRIM(RTRIM(SourceSystem)));
     """)
 
-    # ======================================================================
-    # 0.5) ELIMINAR EQUIVALENCIAS INVÁLIDAS (CodigoOrigen = SKU_Oficial)
-    # ======================================================================
     cur.execute("""
         DELETE FROM MapProductoEquivalencia
         WHERE UPPER(LTRIM(RTRIM(CodigoOrigen))) =
               UPPER(LTRIM(RTRIM(SKU_Oficial)));
     """)
 
-    # ======================================================================
-    # 0.6) FILTRO FINAL EN STAGING:
-    #     SI CodigoOrigen coincide con SKU o SKU_Oficial → eliminar
-    #     (Esto evita duplicados en el MERGE)
-    # ======================================================================
-
-    # Neo4j
+    # NEO4J
     cur.execute("""
         UPDATE stg.Producto
         SET CodigoNeo4j = NULL
         WHERE CodigoNeo4j IS NOT NULL
-          AND (
-                UPPER(CodigoNeo4j) = UPPER(SKU)
-             OR UPPER(CodigoNeo4j) = UPPER(SKU_Oficial)
-          );
+          AND (CodigoNeo4j = SKU OR CodigoNeo4j = SKU_Oficial);
     """)
-
-    # Alterno
+    # ALTERNO
     cur.execute("""
         UPDATE stg.Producto
         SET CodigoAlterno = NULL
         WHERE CodigoAlterno IS NOT NULL
-          AND (
-                UPPER(CodigoAlterno) = UPPER(SKU)
-             OR UPPER(CodigoAlterno) = UPPER(SKU_Oficial)
-          );
+          AND (CodigoAlterno = SKU OR CodigoAlterno = SKU_Oficial);
     """)
-
-    # Mongo
+    # MONGO
     cur.execute("""
         UPDATE stg.Producto
         SET CodigoMongo = NULL
         WHERE CodigoMongo IS NOT NULL
-          AND (
-                UPPER(CodigoMongo) = UPPER(SKU)
-             OR UPPER(CodigoMongo) = UPPER(SKU_Oficial)
-          );
+          AND (CodigoMongo = SKU OR CodigoMongo = SKU_Oficial);
     """)
 
-    # ======================================================================
-    # 1) MSSQL DEFINE SKU OFICIAL
-    # ======================================================================
     cur.execute("""
         UPDATE p
         SET SKU_Oficial = p.SKU
@@ -128,9 +102,6 @@ def load_dim_producto(cur):
           AND p.SKU IS NOT NULL;
     """)
 
-    # ======================================================================
-    # 2) HEREDAR SKU OFICIAL DESDE MSSQL
-    # ======================================================================
     cur.execute("""
         UPDATE p
         SET SKU_Oficial = m.SKU
@@ -142,9 +113,6 @@ def load_dim_producto(cur):
         WHERE p.SKU_Oficial IS NULL;
     """)
 
-    # ======================================================================
-    # 3) GENERAR SKU_AUTO PARA LOS QUE NO TIENEN
-    # ======================================================================
     cur.execute("""
         UPDATE stg.Producto
         SET SKU_Oficial = 'SKU_AUTO_' +
@@ -152,9 +120,6 @@ def load_dim_producto(cur):
         WHERE SKU_Oficial IS NULL;
     """)
 
-    # ======================================================================
-    # 4) INSERTAR DimProducto SI NO EXISTE
-    # ======================================================================
     cur.execute("""
         INSERT INTO DimProducto (SKU, Nombre, Categoria, SourceSystem)
         SELECT
@@ -170,16 +135,23 @@ def load_dim_producto(cur):
         );
     """)
 
-    # ======================================================================
-    # 5) MERGE FINAL (SIN DUPLICADOS)
-    # ======================================================================
+    cur.execute("""
+        WITH CTE AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY SourceSystem, CodigoOrigen, TipoCodigo
+                       ORDER BY SKU_Oficial
+                   ) AS rn
+            FROM MapProductoEquivalencia
+        )
+        DELETE FROM CTE WHERE rn > 1;
+    """)
 
-    # 5.1 – SKU
     cur.execute("""
         MERGE MapProductoEquivalencia AS target
         USING (
-            SELECT DISTINCT
-                SKU_Oficial,
+            SELECT
+                MIN(SKU_Oficial) AS SKU_Oficial,
                 SourceSystem,
                 SKU AS CodigoOrigen,
                 'SKU' AS TipoCodigo
@@ -187,9 +159,9 @@ def load_dim_producto(cur):
             WHERE SKU IS NOT NULL
               AND LEN(SKU) > 0
               AND SKU <> SKU_Oficial
+            GROUP BY SourceSystem, SKU
         ) AS source
-        ON target.SKU_Oficial = source.SKU_Oficial
-           AND target.SourceSystem = source.SourceSystem
+        ON target.SourceSystem = source.SourceSystem
            AND target.CodigoOrigen = source.CodigoOrigen
            AND target.TipoCodigo = source.TipoCodigo
         WHEN NOT MATCHED THEN
@@ -197,12 +169,11 @@ def load_dim_producto(cur):
             VALUES (source.SKU_Oficial, source.SourceSystem, source.CodigoOrigen, source.TipoCodigo);
     """)
 
-    # 5.2 – ALTERNO
     cur.execute("""
         MERGE MapProductoEquivalencia AS target
         USING (
-            SELECT DISTINCT
-                SKU_Oficial,
+            SELECT
+                MIN(SKU_Oficial) AS SKU_Oficial,
                 SourceSystem,
                 CodigoAlterno AS CodigoOrigen,
                 'ALTERNO' AS TipoCodigo
@@ -210,9 +181,9 @@ def load_dim_producto(cur):
             WHERE CodigoAlterno IS NOT NULL
               AND LEN(CodigoAlterno) > 0
               AND CodigoAlterno <> SKU_Oficial
+            GROUP BY SourceSystem, CodigoAlterno
         ) AS source
-        ON target.SKU_Oficial = source.SKU_Oficial
-           AND target.SourceSystem = source.SourceSystem
+        ON target.SourceSystem = source.SourceSystem
            AND target.CodigoOrigen = source.CodigoOrigen
            AND target.TipoCodigo = source.TipoCodigo
         WHEN NOT MATCHED THEN
@@ -220,12 +191,11 @@ def load_dim_producto(cur):
             VALUES (source.SKU_Oficial, source.SourceSystem, source.CodigoOrigen, source.TipoCodigo);
     """)
 
-    # 5.3 – MONGO
     cur.execute("""
         MERGE MapProductoEquivalencia AS target
         USING (
-            SELECT DISTINCT
-                SKU_Oficial,
+            SELECT
+                MIN(SKU_Oficial) AS SKU_Oficial,
                 SourceSystem,
                 CodigoMongo AS CodigoOrigen,
                 'MONGO' AS TipoCodigo
@@ -233,9 +203,9 @@ def load_dim_producto(cur):
             WHERE CodigoMongo IS NOT NULL
               AND LEN(CodigoMongo) > 0
               AND CodigoMongo <> SKU_Oficial
+            GROUP BY SourceSystem, CodigoMongo
         ) AS source
-        ON target.SKU_Oficial = source.SKU_Oficial
-           AND target.SourceSystem = source.SourceSystem
+        ON target.SourceSystem = source.SourceSystem
            AND target.CodigoOrigen = source.CodigoOrigen
            AND target.TipoCodigo = source.TipoCodigo
         WHEN NOT MATCHED THEN
@@ -243,12 +213,11 @@ def load_dim_producto(cur):
             VALUES (source.SKU_Oficial, source.SourceSystem, source.CodigoOrigen, source.TipoCodigo);
     """)
 
-    # 5.4 – NEO4J
     cur.execute("""
         MERGE MapProductoEquivalencia AS target
         USING (
-            SELECT DISTINCT
-                SKU_Oficial,
+            SELECT
+                MIN(SKU_Oficial) AS SKU_Oficial,
                 SourceSystem,
                 CodigoNeo4j AS CodigoOrigen,
                 'NEO4J' AS TipoCodigo
@@ -256,9 +225,9 @@ def load_dim_producto(cur):
             WHERE CodigoNeo4j IS NOT NULL
               AND LEN(CodigoNeo4j) > 0
               AND CodigoNeo4j <> SKU_Oficial
+            GROUP BY SourceSystem, CodigoNeo4j
         ) AS source
-        ON target.SKU_Oficial = source.SKU_Oficial
-           AND target.SourceSystem = source.SourceSystem
+        ON target.SourceSystem = source.SourceSystem
            AND target.CodigoOrigen = source.CodigoOrigen
            AND target.TipoCodigo = source.TipoCodigo
         WHEN NOT MATCHED THEN
@@ -266,11 +235,9 @@ def load_dim_producto(cur):
             VALUES (source.SKU_Oficial, source.SourceSystem, source.CodigoOrigen, source.TipoCodigo);
     """)
 
-    # ======================================================================
-    # RETORNAR TOTAL DimProducto
-    # ======================================================================
     cur.execute("SELECT COUNT(*) FROM DimProducto;")
     return cur.fetchone()[0]
+
 
 
 # ------------------------------------------------------------
