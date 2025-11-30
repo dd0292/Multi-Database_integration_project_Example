@@ -9,7 +9,7 @@ export interface ProductoFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: ProductoFormData) => void;
-  dbType: "mongo" | "mssql" | "mysql" | "supabase" | "neo4j";
+  dbType: "mongodb" | "mssql" | "mysql" | "supabase" | "neo4j";
   initialData?: Partial<ProductoFormData>;
   codeNeeded?: boolean;
   extraCodes?: boolean;

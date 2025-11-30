@@ -19,10 +19,11 @@ export interface OrdenFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: OrdenFormData) => void;
-  dbType: "mongo" | "mssql" | "mysql" | "supabase" | "neo4j";
+  dbType: "mongodb" | "mssql" | "mysql" | "supabase" | "neo4j";
   monedas: Array<string>;
   canales: Array<string>;
   addDescuentoPct?: boolean;
   extraInfo?: boolean;
   initialData?: Partial<OrdenFormData>;
+  addRecomendations?: boolean;
 }

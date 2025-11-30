@@ -20,7 +20,6 @@ class OrdenNeo4jService:
             fecha: $fecha,
             canal: $canal,
             moneda: $moneda,
-            descripcion: $descripcion,
             total: $total
         })
         
@@ -47,9 +46,8 @@ class OrdenNeo4jService:
             "fecha": orden_dict["fecha"],
             "canal": orden_dict["canal"],
             "moneda": orden_dict["moneda"],
-            "descripcion": orden_dict.get("descripcion"),
-            "total": total,
-            "items": orden_dict["items"]
+            "items": orden_dict["items"],
+            "total": round(total, 2)
         }
         
         result = self.session.run(query, params)
@@ -79,8 +77,7 @@ class OrdenNeo4jService:
                  producto: p,
                  categoria: cat,
                  cantidad: contiene.cantidad,
-                 precio_unit: contiene.precio_unit,
-                 descuento_pct: contiene.descuento_pct
+                 precio_unit: contiene.precio_unit
                }) as items
         ORDER BY o.fecha DESC
         SKIP $skip LIMIT $limit
@@ -102,15 +99,15 @@ class OrdenNeo4jService:
         query = """
         MATCH (c:Cliente)-[:REALIZO]->(o:Orden {id: $orden_id})
         OPTIONAL MATCH (o)-[contiene:CONTIENE]->(p:Producto)
+        WITH o, c, contiene, p
         OPTIONAL MATCH (p)-[:PERTENECE_A]->(cat:Categoria)
         RETURN o, c, 
-               COLLECT({
-                 producto: p,
-                 categoria: cat,
-                 cantidad: contiene.cantidad,
-                 precio_unit: contiene.precio_unit,
-                 descuento_pct: contiene.descuento_pct
-               }) as items
+            COLLECT(DISTINCT {
+                producto: p,
+                categoria: cat,
+                cantidad: contiene.cantidad,
+                precio_unit: contiene.precio_unit
+            }) as items
         """
         
         result = self.session.run(query, orden_id=orden_id)
@@ -137,7 +134,6 @@ class OrdenNeo4jService:
         SET o.fecha = $fecha,
             o.canal = $canal,
             o.moneda = $moneda,
-            o.descripcion = $descripcion,
             o.total = $total
         
         // Update cliente relationship if changed
@@ -157,8 +153,7 @@ class OrdenNeo4jService:
         MATCH (p:Producto {id: item.producto_id})
         CREATE (o)-[:CONTIENE {
             cantidad: item.cantidad,
-            precio_unit: item.precio_unit,
-            descuento_pct: item.descuento_pct
+            precio_unit: item.precio_unit
         }]->(p)
         
         RETURN o
@@ -166,11 +161,10 @@ class OrdenNeo4jService:
         
         params = {
             "orden_id": orden_id,
-            "cliente_id": update_data["cliente_id"],
-            "fecha": update_data["fecha"],
-            "canal": update_data["canal"],
-            "moneda": update_data["moneda"],
-            "descripcion": update_data.get("descripcion"),
+            "fecha": update_data.get("fecha", existing_orden["fecha"]),
+            "canal": update_data.get("canal", existing_orden["canal"]),
+            "moneda": update_data.get("moneda", existing_orden["moneda"]),
+            "cliente_id": update_data.get("cliente_id", existing_orden["cliente_id"]),
             "total": update_data.get("total", existing_orden["total"]),
             "items": update_data.get("items", [])
         }
@@ -217,8 +211,7 @@ class OrdenNeo4jService:
                  producto: p,
                  categoria: cat,
                  cantidad: contiene.cantidad,
-                 precio_unit: contiene.precio_unit,
-                 descuento_pct: contiene.descuento_pct
+                 precio_unit: contiene.precio_unit
                }) as items
         ORDER BY o.fecha DESC
         SKIP $skip LIMIT $limit
@@ -321,6 +314,17 @@ class OrdenNeo4jService:
             total += precio_final * item["cantidad"]
         return round(total, 2)
     
+    def _sanitize_neo4j_value(self, value):
+        if hasattr(value, "to_native"):
+            return value.to_native()
+
+        if isinstance(value, list):
+            return [self._sanitize_neo4j_value(v) for v in value]
+        if isinstance(value, dict):
+            return {k: self._sanitize_neo4j_value(v) for k, v in value.items()}
+
+        return value
+
     def _build_orden_response(self, record) -> dict:
         """Build complete orden response from query record"""
         if not record:
@@ -329,28 +333,19 @@ class OrdenNeo4jService:
         orden_node = record["o"]
         cliente_node = record["c"]
         items_data = record["items"]
-        
-        orden_props = dict(orden_node.items())
-        cliente_props = dict(cliente_node.items())
+
+        orden_props = {k: self._sanitize_neo4j_value(v) for k, v in orden_node.items()}
+        cliente_props = {k: self._sanitize_neo4j_value(v) for k, v in cliente_node.items()}
         
         # Build items with complete product and category info
         items = []
         for item_data in items_data:
             if item_data["producto"]:
-                producto_props = dict(item_data["producto"].items())
-                categoria_props = dict(item_data["categoria"].items()) if item_data["categoria"] else {}
-                
+                producto_props = {k: self._sanitize_neo4j_value(v) for k, v in item_data["producto"].items()}
                 items.append({
                     "producto_id": producto_props.get("id"),
-                    "producto_nombre": producto_props.get("nombre"),
-                    "categoria_info": {
-                        "id": categoria_props.get("id"),
-                        "nombre": categoria_props.get("nombre")
-                    } if categoria_props else None,
                     "cantidad": item_data["cantidad"],
-                    "precio_unit": item_data["precio_unit"],
-                    "descuento_pct": item_data["descuento_pct"],
-                    "subtotal": item_data["cantidad"] * item_data["precio_unit"] * (1 - (item_data["descuento_pct"] or 0) / 100)
+                    "precio_unit": item_data["precio_unit"]
                 })
         
         return {
@@ -358,15 +353,7 @@ class OrdenNeo4jService:
             "fecha": orden_props.get("fecha"),
             "canal": orden_props.get("canal"),
             "moneda": orden_props.get("moneda"),
-            "descripcion": orden_props.get("descripcion"),
             "total": orden_props.get("total"),
-            "cliente": {
-                "id": cliente_props.get("id"),
-                "nombre": cliente_props.get("nombre"),
-                "email": cliente_props.get("email"),
-                "genero": cliente_props.get("genero"),
-                "pais": cliente_props.get("pais"),
-                "creado": cliente_props.get("creado")
-            },
+            "cliente_id": cliente_props.get("id"),
             "items": items
         }

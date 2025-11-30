@@ -24,18 +24,14 @@ class ProductoResponse(BaseModel):
 
 class OrdenItemResponse(BaseModel):
     producto_id: str 
-    producto_nombre: str
     cantidad: int 
     precio_unit: float 
-    descuento_pct: Optional[float] 
-    subtotal: float
 
 class OrdenResponse(BaseModel):
     id: str
-    fecha: str 
+    fecha: datetime 
     canal: str
     moneda: str 
-    descripcion: Optional[str]
     total: float 
-    cliente: ClienteResponse
+    cliente_id: str
     items: List[OrdenItemResponse]

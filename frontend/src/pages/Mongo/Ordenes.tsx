@@ -15,12 +15,15 @@ const MongoOrdenes = () => {
     data,
     isLoading,
     error,
+    page,
+    setPage,
+    totalPages,
     createMutation,
     updateMutation,
     deleteMutation,
   } = useCrudOperations<MongoOrden, OrdenFormData>({
-    endpoint: "/mongo/ordenes",
-    queryKey: "mongo-ordenes",
+    endpoint: "/mongodb/ordenes",
+    queryKey: "mongodb-ordenes",
     formToPayload: ordenFormToPayload,
     onSuccessMessage: "Orden procesado exitosamente"
   });
@@ -89,11 +92,12 @@ const MongoOrdenes = () => {
         open={isFormOpen}
         onOpenChange={handleFormOpenChange}
         onSubmit={onFormSubmit}
-        dbType="mongo"
+        dbType="mongodb"
         canales={["WEB", "TIENDA", "APP"]}
         monedas={["CRC"]}
         addDescuentoPct = {true}
         extraInfo = {true}
+        addRecomendations = {true}
         initialData={editingClient!}
       />
 
@@ -175,7 +179,41 @@ const MongoOrdenes = () => {
               No orders found. Create your first order!
             </div>
           )}
-        </CardContent>
+        </CardContent>        
+        {data?.data && data.data.length > 0 && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6 pb-4 px-6 bg-gray-50/50 dark:bg-gray-900/50 rounded-b-lg">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-2 order-2 sm:order-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                  className="min-w-[100px]"
+                >
+                  Previous
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                  className="min-w-[100px]"
+                >
+                  Next
+                </Button>
+              </div>
+              
+              <div className="order-1 sm:order-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 px-3 py-1 rounded-md border shadow-sm">
+                  Page {page} of {totalPages}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
       </Card>
     </div>
   );

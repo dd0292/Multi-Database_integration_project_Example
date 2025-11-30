@@ -18,11 +18,12 @@ export function useCrudOperations<T extends { id: string }, TForm>({
   formToPayload,
   onSuccessMessage = "Operación exitosa"
 }: UseCrudOperationsProps<TForm>) {
+
   const queryClient = useQueryClient();
-  const [page] = useState(1);
+  const [page, setPage] = useState(1);
   const limit = 20;
 
-  // GET
+  // GET with pagination
   const { data, isLoading, error } = useQuery({
     queryKey: [queryKey, page],
     queryFn: async () => {
@@ -33,7 +34,10 @@ export function useCrudOperations<T extends { id: string }, TForm>({
     },
   });
 
-  // POST
+  const totalPages =
+    data && data.total ? Math.ceil(data.total / limit) : 1;
+
+  // MUTATIONS (POST – PATCH – DELETE)
   const createMutation = useMutation({
     mutationFn: async (formData: TForm) => {
       const payload = formToPayload ? formToPayload(formData) : formData;
@@ -45,12 +49,10 @@ export function useCrudOperations<T extends { id: string }, TForm>({
       toast.success(onSuccessMessage);
     },
     onError: (error: AxiosError<{ detail?: string }>) => {
-      const errorMessage = error.response?.data?.detail || "Error al crear";
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.detail || "Error al crear");
     },
   });
 
-  // PATCH
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: TForm }) => {
       const payload = formToPayload ? formToPayload(data) : data;
@@ -62,12 +64,10 @@ export function useCrudOperations<T extends { id: string }, TForm>({
       toast.success(onSuccessMessage.replace("crear", "actualizar"));
     },
     onError: (error: AxiosError<{ detail?: string }>) => {
-      const errorMessage = error.response?.data?.detail || "Error al actualizar";
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.detail || "Error al actualizar");
     },
   });
 
-  // DELETE
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.delete(`${endpoint}/${id}`);
@@ -78,8 +78,7 @@ export function useCrudOperations<T extends { id: string }, TForm>({
       toast.success(onSuccessMessage.replace("crear", "eliminar"));
     },
     onError: (error: AxiosError<{ detail?: string }>) => {
-      const errorMessage = error.response?.data?.detail || "Error al eliminar";
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.detail || "Error al eliminar");
     },
   });
 
@@ -87,6 +86,9 @@ export function useCrudOperations<T extends { id: string }, TForm>({
     data,
     isLoading,
     error,
+    page,
+    setPage,
+    totalPages,
     createMutation,
     updateMutation,
     deleteMutation,

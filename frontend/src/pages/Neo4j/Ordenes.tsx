@@ -15,6 +15,9 @@ const Neo4jOrdenes = () => {
     data,
     isLoading,
     error,
+    page,
+    setPage,
+    totalPages,
     createMutation,
     updateMutation,
     deleteMutation,
@@ -88,6 +91,7 @@ const Neo4jOrdenes = () => {
         dbType="neo4j"
         canales={["WEB", "TIENDA", "APP"]}
         monedas={["CRC", "USD"]}
+        addRecomendations = {true}
         initialData={editingClient!}
       />
 
@@ -117,10 +121,6 @@ const Neo4jOrdenes = () => {
                         </Badge>
                       </div>
 
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Cliente: {orden.cliente.nombre}
-                      </p>
-
                       <p className="text-sm text-muted-foreground">
                         {new Date(orden.fecha).toLocaleString()}
                       </p>
@@ -128,7 +128,7 @@ const Neo4jOrdenes = () => {
 
                     <div className="text-right">
                       <div className="text-2xl font-bold text-neo4j">
-                        ${orden.total.toFixed(2)}
+                        {formatCurrency(orden.total || 0, orden.moneda)}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {orden.moneda}
@@ -168,6 +168,40 @@ const Neo4jOrdenes = () => {
             </div>
           )}
         </CardContent>
+        {data?.data && data.data.length > 0 && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6 pb-4 px-6 bg-gray-50/50 dark:bg-gray-900/50 rounded-b-lg">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-2 order-2 sm:order-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                  className="min-w-[100px]"
+                >
+                  Previous
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                  className="min-w-[100px]"
+                >
+                  Next
+                </Button>
+              </div>
+              
+              <div className="order-1 sm:order-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 px-3 py-1 rounded-md border shadow-sm">
+                  Page {page} of {totalPages}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
       </Card>
     </div>
   );

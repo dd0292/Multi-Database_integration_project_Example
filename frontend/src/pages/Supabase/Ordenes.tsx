@@ -73,7 +73,7 @@ const SupabaseOrdenes = () => {
 
   const handleDelete = (orden: SupabaseOrden) => {
     if (window.confirm(`¿Eliminar orden #${orden.orden_id?.slice(0, 8)}? Esta acción es permanente.`)) {
-      deleteMutation.mutate(orden.orden_id);
+      deleteMutation.mutate(orden.orden_id!);
     }
   };
 
@@ -130,6 +130,7 @@ const SupabaseOrdenes = () => {
     dbType="supabase" 
     monedas={["USD","CRC"]} 
     canales={["WEB","APP","PARTNER"]} 
+    addRecomendations={true}
   />
 
       <Card className="border-l-4 border-supabase">
