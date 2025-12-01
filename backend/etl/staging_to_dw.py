@@ -404,12 +404,15 @@ def load_fact_ventas(cur):
            AND dc.EsRegistroActual = 1
 
         INNER JOIN MapProductoEquivalencia mpe
-            ON mpe.CodigoOrigen = f.Source_Producto_Id
-           AND mpe.SourceSystem = f.SourceSystem
+            ON UPPER(LTRIM(RTRIM(mpe.CodigoOrigen))) =
+            UPPER(LTRIM(RTRIM(f.Source_Producto_Id)))
+        AND UPPER(mpe.SourceSystem) = UPPER(f.SourceSystem)
+
 
         INNER JOIN DimProducto dp
-            ON dp.SKU = mpe.SKU_Oficial
-           AND dp.EsRegistroActual = 1
+            ON UPPER(dp.SKU) = UPPER(mpe.SKU_Oficial)
+            AND dp.EsRegistroActual = 1
+
 
         INNER JOIN DimCanal dcan
             ON dcan.CodigoCanal = f.Canal
