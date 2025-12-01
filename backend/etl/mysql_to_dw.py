@@ -33,7 +33,7 @@ def get_sqlsrv_conn():
 
 
 # ------------------------------------------------------
-#  TIPO DE CAMBIO
+#  TIPO DE CAMBIO (CRC -> USD)
 # ------------------------------------------------------
 
 def get_tasa_crc_to_usd(fecha):
@@ -99,7 +99,7 @@ def load_mysql_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
         """, rows_canal)
 
     # --------------------------
-    # STAGING FACTVENTAS MySQL
+    # STAGING FACTVENTAS (MYSQL)
     # --------------------------
     if rows_fact:
         cur.executemany("""
@@ -123,11 +123,12 @@ def load_mysql_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
 # ------------------------------------------------------
 
 def run_mysql_etl():
+
     conn = get_mysql_conn()
     cur = conn.cursor(dictionary=True)
 
     # --------------------------
-    # SELECT CON ALIASES CORRECTOS
+    # SELECT BASE (PDF ALIGNED)
     # --------------------------
     cur.execute("""
         SELECT
@@ -152,9 +153,8 @@ def run_mysql_etl():
             p.nombre AS producto_nombre,
             p.categoria AS producto_categoria,
             p.codigo_alt AS producto_codigo_alt
-
         FROM OrdenDetalle od
-        JOIN Orden o ON o.id = od.orden_id
+        JOIN Orden o   ON o.id = od.orden_id
         JOIN Cliente c ON c.id = o.cliente_id
         JOIN Producto p ON p.id = od.producto_id
     """)
@@ -176,13 +176,19 @@ def run_mysql_etl():
 
     for r in rows:
 
-        # FECHA
+        # --------------------------
+        # FECHA (string -> datetime)
+        # --------------------------
         fecha = parse_mysql_date(r["fecha"])
 
-        # GENERO
+        # --------------------------
+        # GÉNERO (M/F/X -> normalizado)
+        # --------------------------
         genero = unify_gender(r["cliente_genero"])
 
-        # CONVERSIÓN DE MONEDA
+        # --------------------------
+        # MONEDA (string -> Decimal USD)
+        # --------------------------
         total = clean_amount_str(r["total"])
         if r["moneda"] == "CRC":
             tasa = get_tasa_crc_to_usd(fecha)
@@ -190,9 +196,9 @@ def run_mysql_etl():
         else:
             usd = total
 
-        # ----------------------------
+        # --------------------------
         # CLIENTE
-        # ----------------------------
+        # --------------------------
         if r["cliente_id"] not in seen_clients:
             seen_clients.add(r["cliente_id"])
             staging_cliente.append((
@@ -205,50 +211,52 @@ def run_mysql_etl():
                 fecha.date()
             ))
 
-        # ----------------------------
+        # --------------------------
         # PRODUCTO
-        # ----------------------------
+        # --------------------------
         if r["producto_id"] not in seen_products:
             seen_products.add(r["producto_id"])
             staging_producto.append((
                 "MySQL",
-                str(r["producto_id"]),
-                None,  # SKU no existe oficialmente en MySQL
-                r["producto_codigo_alt"],
+                str(r["producto_id"]),   # interno
+                None,                    # no hay SKU oficial
+                r["producto_codigo_alt"],# ✅ CÓDIGO FUNCIONAL (PDF)
                 r["producto_nombre"],
                 r["producto_categoria"]
             ))
 
-        # ----------------------------
+        # --------------------------
         # TIEMPO
-        # ----------------------------
+        # --------------------------
         if fecha.date() not in seen_dates:
             seen_dates.add(fecha.date())
             staging_tiempo.append((fecha.date(),))
 
-        # ----------------------------
+        # --------------------------
         # CANAL
-        # ----------------------------
-        if r["canal"] not in seen_channels:
-            seen_channels.add(r["canal"])
-            staging_canal.append(("MySQL", r["canal"]))
+        # --------------------------
+        canal = r["canal"] or "WEB"
+        if canal not in seen_channels:
+            seen_channels.add(canal)
+            staging_canal.append(("MySQL", canal))
 
-        # ----------------------------
+        # --------------------------
         # FACTVENTAS
-        # ----------------------------
+        # ⚠️ USAR CODIGO_ALT (NO PRODUCTO_ID)
+        # --------------------------
         staging_fact.append((
             "MySQL",
             str(r["orden_id"]),
             str(r["detalle_id"]),
             str(r["cliente_id"]),
-            str(r["producto_id"]),
+            r["producto_codigo_alt"],   # ✅ PDF-COMPLIANT
             r["cliente_nombre"],
             genero,
             r["cliente_pais"],
             r["producto_nombre"],
             r["producto_categoria"],
             fecha,
-            r["canal"],
+            canal,
             usd,
             r["cantidad"],
         ))
@@ -261,4 +269,5 @@ def run_mysql_etl():
         staging_fact
     )
 
-    print("ETL MySQL → STAGING completado.")
+    print(f"[MySQL] ETL → STAGING completado. "
+          f"Clientes={len(staging_cliente)}, Productos={len(staging_producto)}, Ventas={len(staging_fact)}")
