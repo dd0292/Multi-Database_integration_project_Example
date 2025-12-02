@@ -167,24 +167,19 @@ def load_dim_producto(cur):
     # 3) LIMPIAR CÓDIGOS REDUNDANTES EN STAGING
     # ======================================================
 
-    cur.execute("""
-        UPDATE stg.Producto
-        SET CodigoNeo4j = NULL
-        WHERE CodigoNeo4j IS NOT NULL
-          AND (CodigoNeo4j = SKU OR CodigoNeo4j = SKU_Oficial);
-    """)
-    cur.execute("""
-        UPDATE stg.Producto
-        SET CodigoAlterno = NULL
-        WHERE CodigoAlterno IS NOT NULL
-          AND (CodigoAlterno = SKU OR CodigoAlterno = SKU_Oficial);
-    """)
-    cur.execute("""
-        UPDATE stg.Producto
-        SET CodigoMongo = NULL
-        WHERE CodigoMongo IS NOT NULL
-          AND (CodigoMongo = SKU OR CodigoMongo = SKU_Oficial);
-    """)
+
+   # cur.execute("""
+   #     UPDATE stg.Producto
+   #     SET CodigoAlterno = NULL
+   #     WHERE CodigoAlterno IS NOT NULL
+   #       AND (CodigoAlterno = SKU OR CodigoAlterno = SKU_Oficial);
+   # """)
+   # cur.execute("""
+   #     UPDATE stg.Producto
+   #     SET CodigoMongo = NULL
+   #     WHERE CodigoMongo IS NOT NULL
+   #       AND (CodigoMongo = SKU OR CodigoMongo = SKU_Oficial);
+   # """)
 
     # ======================================================
     # 4) DEFINIR SKU OFICIAL CON PRIORIDAD DE FUENTE
@@ -210,7 +205,7 @@ def load_dim_producto(cur):
         WHERE SKU_Oficial IS NULL;
     """)
 
-    
+
     # ======================================================
     # 5) INSERTAR EN DIMPRODUCTO (con defaults standardizados)
     # ======================================================
@@ -248,7 +243,8 @@ def load_dim_producto(cur):
             SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(c.SKU_Oficial)
         );
     """)
-# ======================================================
+
+    # ======================================================
     # 6) INSERTAR EN MAPPRODUCTOEQUIVALENCIA 
     # ======================================================
     cur.execute("""
@@ -329,6 +325,7 @@ def load_dim_producto(cur):
             SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(s.SKU_Oficial)
         );
     """)
+
 
     # ======================================================
     # 8) LIMPIAR DUPLICADOS HISTÓRICOS
