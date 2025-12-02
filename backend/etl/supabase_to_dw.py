@@ -1,4 +1,5 @@
 import os
+import mysql.connector
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 import pyodbc
@@ -30,6 +31,8 @@ def get_sqlsrv_dw_conn():
         f"PWD={os.getenv('SQLSERVER_PASSWORD')};"
         "Encrypt=no;TrustServerCertificate=yes;"
     )
+
+
 
 
 # ---------------------------
@@ -97,6 +100,7 @@ def extract_supabase_data():
             "cliente_nombre": c["nombre"],
             "cliente_genero": c["genero"],
             "cliente_pais": c["pais"],
+            "cliente_email": c["email"],
             "sku": p["sku"],
             "producto_nombre": p["nombre"],
             "producto_categoria": p["categoria"]
@@ -123,7 +127,7 @@ def load_supabase_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, 
     if rows_producto:
         cur.executemany("""
             INSERT INTO stg.Producto
-            (SourceSystem, SourceProductoID, SKU, CodigoAlterno, CodigoMongo, CodigoNeo4j, Nombre, Categoria)
+            (SourceSystem, SourceProductoID, SKU, Nombre, Categoria)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, rows_producto)
 
@@ -155,12 +159,34 @@ def load_supabase_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, 
     conn.close()
 
 
+def _clear_staging_for_source(conn, source_system: str, fact_table_name: str):
+    """
+    Remove previous staging rows for this source to make the ETL idempotent.
+    conn is an open pyodbc connection to the DW.
+    """
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM stg.Cliente WHERE SourceSystem = ?", (source_system,))
+        cur.execute("DELETE FROM stg.Producto WHERE SourceSystem = ?", (source_system,))
+        cur.execute("DELETE FROM stg.Canal WHERE SourceSystem = ?", (source_system,))
+        cur.execute(f"DELETE FROM {fact_table_name}")
+        conn.commit()
+    finally:
+        cur.close()
+
+
 # ---------------------------
 # ETL PRINCIPAL
 # ---------------------------
 def run_supabase_etl():
 
     print("\n[Supabase] Iniciando ETL → STAGING")
+
+    conn_dw = get_sqlsrv_dw_conn()
+    try:
+        _clear_staging_for_source(conn_dw, "Supabase", "stg.FactVentas_Supabase")
+    finally:
+        conn_dw.close()
 
     rows = extract_supabase_data()
     if not rows:
@@ -209,7 +235,7 @@ def run_supabase_etl():
                 "Supabase",
                 str(r["cliente_id"]),
                 r["cliente_nombre"],
-                None,
+                r["cliente_email"],
                 genero,
                 r["cliente_pais"],
                 fecha.date()
@@ -222,9 +248,6 @@ def run_supabase_etl():
                 "Supabase",
                 str(r["producto_id"]),
                 r["sku"],     # puede ser NULL en algunos → se resolverá luego
-                None,
-                None,
-                None,
                 r["producto_nombre"],
                 r["producto_categoria"],
             ))

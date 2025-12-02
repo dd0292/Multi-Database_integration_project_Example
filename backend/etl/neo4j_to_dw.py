@@ -29,18 +29,57 @@ def get_sqlsrv_dw_conn():
 
 
 def get_tasa_crc_to_usd(fecha):
+    """
+    Return the USD conversion rate for CRC as of `fecha` (closest rate <= fecha).
+    If none <= fecha exists, return the earliest available rate. If no rates exist, return 1.
+    Accepts datetime/date/string (ISO) input for `fecha`.
+    """
     conn = get_sqlsrv_dw_conn()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT TOP 1 Tasa
-        FROM stg.Tipo_Cambio
-        WHERE De = 'CRC' AND A = 'USD'
-        ORDER BY Fecha DESC
-    """)
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-    return Decimal(row[0]) if row else Decimal(1)
+    cur = conn.cursor() 
+    try:
+        # normalize fecha to a date object
+        if fecha is None:
+            fecha_key = datetime.utcnow().date()
+        elif isinstance(fecha, datetime):
+            fecha_key = fecha.date()
+        elif isinstance(fecha, str):
+            try:
+                fecha_key = datetime.fromisoformat(fecha.replace("Z", "+00:00")).date()
+            except Exception:
+                try:
+                    fecha_key = datetime.strptime(fecha, "%Y-%m-%d").date()
+                except Exception:
+                    fecha_key = datetime.utcnow().date()
+        else:
+            # assume it's a date-like object
+            fecha_key = fecha
+
+        # Try to get the most recent rate on or before fecha_key
+        cur.execute("""
+            SELECT TOP 1 Tasa
+            FROM stg.Tipo_Cambio
+            WHERE De = ? AND A = ? AND Fecha <= ?
+            ORDER BY Fecha DESC
+        """, ("CRC", "USD", fecha_key))
+        row = cur.fetchone()
+        if row:
+            return Decimal(row[0])
+
+        # Fallback: earliest available rate
+        cur.execute("""
+            SELECT TOP 1 Tasa
+            FROM stg.Tipo_Cambio
+            WHERE De = ? AND A = ?
+            ORDER BY Fecha ASC
+        """, ("CRC", "USD"))
+        row = cur.fetchone()
+        if row:
+            return Decimal(row[0])
+
+        return Decimal(1)
+    finally:
+        cur.close()
+        conn.close()
 
 
 def extract_neo4j_data():
@@ -55,6 +94,7 @@ def extract_neo4j_data():
         cliente.nombre as cliente_nombre,
         cliente.genero as cliente_genero,
         cliente.pais as cliente_pais,
+        cliente.email as cliente_email,
         orden.id as orden_id,
         orden.fecha as orden_fecha,
         orden.canal as canal,
@@ -96,7 +136,7 @@ def load_neo4j_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
     if rows_producto:
         cur.executemany("""
             INSERT INTO stg.Producto
-            (SourceSystem, SourceProductoID, SKU, CodigoAlterno, CodigoMongo, CodigoNeo4j, Nombre, Categoria)
+            (SourceSystem, SourceProductoID, SKU, CodigoAlterno, CodigoMongo, Nombre, Categoria)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, rows_producto)
 
@@ -128,8 +168,32 @@ def load_neo4j_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
     conn.close()
 
 
+def _clear_staging_for_source(conn, source_system: str, fact_table_name: str):
+    """
+    Remove previous staging rows for this source to make the ETL idempotent.
+    conn is an open pyodbc connection to the DW.
+    """
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM stg.Cliente WHERE SourceSystem = ?", (source_system,))
+        cur.execute("DELETE FROM stg.Producto WHERE SourceSystem = ?", (source_system,))
+        cur.execute("DELETE FROM stg.Canal WHERE SourceSystem = ?", (source_system,))
+        cur.execute(f"DELETE FROM {fact_table_name}")
+        conn.commit()
+    finally:
+        cur.close()
+
+
 def run_neo4j_etl():
     print("\n[Neo4j] Iniciando ETL → STAGING")
+
+    # Clear previous staging rows that belong to Neo4j
+    conn_dw = get_sqlsrv_dw_conn()
+    try:
+        _clear_staging_for_source(conn_dw, "Neo4j", "stg.FactVentas_Neo4j")
+    finally:
+        conn_dw.close()
+
     rows = extract_neo4j_data()
     if not rows:
         print("[Neo4j] No hay datos")
@@ -193,7 +257,7 @@ def run_neo4j_etl():
                 "Neo4j",
                 cliente_id,
                 r.get("cliente_nombre"),
-                None,
+                r.get("cliente_email"),
                 genero,
                 r.get("cliente_pais"),
                 fecha.date()
@@ -210,7 +274,6 @@ def run_neo4j_etl():
                 r.get("sku"),
                 r.get("codigo_alt"),
                 r.get("codigo_mongo"),
-                prod_id,  # CodigoNeo4j
                 r.get("producto_nombre"),
                 r.get("categoria") or "Sin Categoría",
             ))

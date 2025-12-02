@@ -53,6 +53,7 @@ def extract_mssql_data():
             o.Moneda,
             o.Total,
             c.Nombre  AS ClienteNombre,
+            c.Email   AS ClienteEmail,
             c.Genero  AS ClienteGenero,
             c.Pais    AS ClientePais,
             p.Nombre  AS ProductoNombre,
@@ -91,7 +92,7 @@ def load_mssql_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
     if rows_producto:
         cur.executemany("""
             INSERT INTO stg.Producto
-            (SourceSystem, SourceProductoID, SKU, CodigoAlterno, CodigoMongo, CodigoNeo4j, Nombre, Categoria)
+            (SourceSystem, SourceProductoID, SKU, Nombre, Categoria)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, rows_producto)
 
@@ -123,8 +124,25 @@ def load_mssql_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
     conn.close()
 
 
+def _clear_staging_for_source(cur, source_system: str, fact_table_name: str):
+    # Remove previous staging rows for this source so ETL is idempotent for re-runs.
+    cur.execute("DELETE FROM stg.Cliente WHERE SourceSystem = ?", (source_system,))
+    cur.execute("DELETE FROM stg.Producto WHERE SourceSystem = ?", (source_system,))
+    cur.execute("DELETE FROM stg.Canal WHERE SourceSystem = ?", (source_system,))
+    # Delete source-specific fact staging (stg.FactVentas_MSSQL)
+    cur.execute(f"DELETE FROM {fact_table_name}")
+
+
 def run_mssql_etl():
     print("\n[MS SQL] Iniciando ETL → STAGING")
+    # Clear previous staging rows that belong to MSSQL
+    conn_dw = get_sqlsrv_dw_conn()
+    cur_dw = conn_dw.cursor()
+    _clear_staging_for_source(cur_dw, "MSSQL", "stg.FactVentas_MSSQL")
+    conn_dw.commit()
+    cur_dw.close()
+    conn_dw.close()
+
     rows = extract_mssql_data()
     if not rows:
         print("[MS SQL] No hay datos")
@@ -165,7 +183,7 @@ def run_mssql_etl():
                 "MSSQL",
                 str(r["ClienteId"]),
                 r["ClienteNombre"],
-                None,
+                r["ClienteEmail"],
                 genero,
                 r["ClientePais"],
                 fecha.date()
@@ -179,9 +197,6 @@ def run_mssql_etl():
                 "MSSQL",
                 str(r["ProductoId"]),
                 r["SKU"],          # SKU oficial
-                None,              # CodigoAlterno
-                None,              # CodigoMongo
-                None,              # CodigoNeo4j
                 r["ProductoNombre"],
                 r["ProductoCategoria"],
             ))

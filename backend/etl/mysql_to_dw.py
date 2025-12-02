@@ -76,7 +76,7 @@ def load_mysql_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
     if rows_producto:
         cur.executemany("""
             INSERT INTO stg.Producto
-            (SourceSystem, SourceProductoID, SKU, CodigoAlterno, Nombre, Categoria)
+            (SourceSystem, SourceProductoID, CodigoAlterno, Nombre, Categoria)
             VALUES (?, ?, ?, ?, ?, ?)
         """, rows_producto)
 
@@ -118,11 +118,33 @@ def load_mysql_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
     conn.close()
 
 
+def _clear_staging_for_source(conn, source_system: str, fact_table_name: str):
+    """
+    Remove previous staging rows for this source to make the ETL idempotent.
+    conn is an open pyodbc connection to the DW.
+    """
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM stg.Cliente WHERE SourceSystem = ?", (source_system,))
+        cur.execute("DELETE FROM stg.Producto WHERE SourceSystem = ?", (source_system,))
+        cur.execute("DELETE FROM stg.Canal WHERE SourceSystem = ?", (source_system,))
+        cur.execute(f"DELETE FROM {fact_table_name}")
+        conn.commit()
+    finally:
+        cur.close()
+
+
 # ------------------------------------------------------
 #  MAIN ETL
 # ------------------------------------------------------
 
 def run_mysql_etl():
+    # Clear previous staging rows that belong to MySQL
+    conn_dw = get_sqlsrv_conn()
+    try:
+        _clear_staging_for_source(conn_dw, "MySQL", "stg.FactVentas_MySQL")
+    finally:
+        conn_dw.close()
 
     conn = get_mysql_conn()
     cur = conn.cursor(dictionary=True)
@@ -229,8 +251,7 @@ def run_mysql_etl():
             staging_producto.append((
                 "MySQL",
                 str(r["producto_id"]),   # interno
-                None,                    # no hay SKU oficial
-                r["producto_codigo_alt"],# ✅ CÓDIGO FUNCIONAL (PDF)
+                r["producto_codigo_alt"],# 
                 r["producto_nombre"],
                 r["producto_categoria"]
             ))
@@ -252,7 +273,7 @@ def run_mysql_etl():
 
         # --------------------------
         # FACTVENTAS
-        # ⚠️ USAR CODIGO_ALT (NO PRODUCTO_ID)
+        # 
         # --------------------------
         staging_fact.append((
             "MySQL",

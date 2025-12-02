@@ -53,7 +53,7 @@ def load_mongo_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
     if rows_producto:
         cur.executemany("""
             INSERT INTO stg.Producto
-            (SourceSystem, SourceProductoID, SKU, CodigoAlterno, CodigoMongo, CodigoNeo4j, Nombre, Categoria)
+            (SourceSystem, SourceProductoID, SKU, CodigoAlterno, CodigoMongo, Nombre, Categoria)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, rows_producto)
 
@@ -85,8 +85,31 @@ def load_mongo_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
     conn.close()
 
 
+def _clear_staging_for_source(conn, source_system: str, fact_table_name: str):
+    """
+    Remove previous staging rows for this source to make the ETL idempotent.
+    conn is an open pyodbc connection to the DW.
+    """
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM stg.Cliente WHERE SourceSystem = ?", (source_system,))
+        cur.execute("DELETE FROM stg.Producto WHERE SourceSystem = ?", (source_system,))
+        cur.execute("DELETE FROM stg.Canal WHERE SourceSystem = ?", (source_system,))
+        cur.execute(f"DELETE FROM {fact_table_name}")
+        conn.commit()
+    finally:
+        cur.close()
+
+
 def run_mongo_etl():
     print("\n[MongoDB] Iniciando ETL → STAGING")
+
+    # Clear previous staging rows that belong to MongoDB
+    conn_dw = get_sqlsrv_conn()
+    try:
+        _clear_staging_for_source(conn_dw, "MongoDB", "stg.FactVentas_Mongo")
+    finally:
+        conn_dw.close()
 
     db = MongoDBConnection.get_db()
 
@@ -134,7 +157,7 @@ def run_mongo_etl():
                 "MongoDB",
                 cliente_id,
                 cliente_doc.get("nombre"),
-                cliente_doc.get("correo"),
+                cliente_doc.get("email"),
                 unify_gender(cliente_doc.get("genero")),
                 cliente_doc.get("pais"),
                 fecha.date(),
@@ -163,10 +186,9 @@ def run_mongo_etl():
                 staging_producto.append((
                     "MongoDB",                 # SourceSystem
                     prod_id,                   # SourceProductoID
-                    None,                      # SKU
-                    None,                      # CodigoAlterno
-                    prod_doc.get("codigo_mongo") or prod_id,  # CodigoMongo
-                    None,                      # CodigoNeo4j
+                    prod_doc.get("equivalencias").get("sku"),         # SKU
+                    prod_doc.get("equivalencias").get("codigo_alt"),                      # CodigoAlterno
+                    prod_doc.get("codigo"),  # CodigoMongo
                     prod_doc.get("nombre"),
                     prod_doc.get("categoria"),
                 ))
