@@ -587,7 +587,10 @@ def load_fact_ventas(cur):
             FROM stg.FactVentas_Supabase
         ), deduped AS (
             SELECT *, ROW_NUMBER() OVER (
-                PARTITION BY UPPER(LTRIM(RTRIM(SourceSystem))), UPPER(LTRIM(RTRIM(Source_Order_Id)))
+                PARTITION BY
+                  UPPER(LTRIM(RTRIM(SourceSystem))),
+                  UPPER(LTRIM(RTRIM(Source_Order_Id))),
+                  UPPER(LTRIM(RTRIM(COALESCE(CAST(Source_Producto_Id AS VARCHAR(200)), SKU_Oficial))))
                 ORDER BY COALESCE(FechaOrden, '1900-01-01') DESC
             ) AS rn
             FROM union_all
@@ -616,7 +619,10 @@ def load_fact_ventas(cur):
             FROM stg.FactVentas_Supabase
         ), deduped AS (
             SELECT *, ROW_NUMBER() OVER (
-                PARTITION BY UPPER(LTRIM(RTRIM(SourceSystem))), UPPER(LTRIM(RTRIM(Source_Order_Id)))
+                PARTITION BY
+                  UPPER(LTRIM(RTRIM(SourceSystem))),
+                  UPPER(LTRIM(RTRIM(Source_Order_Id))),
+                  UPPER(LTRIM(RTRIM(COALESCE(CAST(Source_Producto_Id AS VARCHAR(200)), SKU_Oficial))))
                 ORDER BY COALESCE(FechaOrden, '1900-01-01') DESC
             ) AS rn
             FROM union_all
