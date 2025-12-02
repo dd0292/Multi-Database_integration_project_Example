@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 import os
 import pyodbc
@@ -171,8 +171,14 @@ def run_mongo_etl():
                     prod_doc.get("categoria"),
                 ))
 
-            cantidad = int(item.get("cantidad", 1))
-            usd = total_crc / tasa if tasa != 0 else total_crc
+                cantidad = int(item.get("cantidad", 1))
+                # Convert CRC -> USD: handle either CRC-per-USD or USD-per-CRC
+                if tasa == 0:
+                    usd = total_crc.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                elif tasa < Decimal("0.01"):
+                    usd = (total_crc * tasa).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                else:
+                    usd = (total_crc / tasa).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
             staging_fact.append((
                 "MongoDB",

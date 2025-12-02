@@ -1,5 +1,5 @@
 import os
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 import pyodbc
 from dotenv import load_dotenv
@@ -190,9 +190,15 @@ def run_supabase_etl():
         # Conversión USD
         total_linea = r["precio_unit"] * r["cantidad"]
         if r["moneda"] == "CRC":
-            usd = total_linea / tasa if tasa != 0 else total_linea
+            # Convert CRC -> USD: handle either CRC-per-USD or USD-per-CRC
+            if tasa == 0:
+                usd = total_linea.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            elif tasa < Decimal("0.01"):
+                usd = (total_linea * tasa).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            else:
+                usd = (total_linea / tasa).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         else:
-            usd = total_linea
+            usd = total_linea.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         genero = unify_gender(r["cliente_genero"])
 

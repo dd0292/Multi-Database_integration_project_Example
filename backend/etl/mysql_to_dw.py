@@ -1,6 +1,6 @@
 import mysql.connector
 import pyodbc
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from api.config import settings
 from etl.transformations.unify_gender import unify_gender
 from etl.transformations.format_dates import parse_mysql_date
@@ -192,9 +192,19 @@ def run_mysql_etl():
         total = clean_amount_str(r["total"])
         if r["moneda"] == "CRC":
             tasa = get_tasa_crc_to_usd(fecha)
-            usd = total / tasa
+            # The BCCR stored rate may be either:
+            # - CRC per USD (e.g. ~600) -> USD = CRC / tasa
+            # - USD per CRC (e.g. ~0.002) -> USD = CRC * tasa
+            # Detect small values (< 0.01) and assume those are USD-per-CRC.
+            if tasa == 0:
+                usd = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            elif tasa < Decimal("0.01"):
+                usd = (total * tasa).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            else:
+                usd = (total / tasa).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         else:
-            usd = total
+            # Already in USD — make sure it matches scaling for DB
+            usd = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         # --------------------------
         # CLIENTE

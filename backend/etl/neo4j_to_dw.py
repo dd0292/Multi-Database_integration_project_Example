@@ -1,5 +1,5 @@
 import os
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 import pyodbc
 from neo4j import GraphDatabase
@@ -173,9 +173,16 @@ def run_neo4j_etl():
         moneda = r.get("moneda") or "USD"
         if moneda == "CRC":
             tasa = get_tasa_crc_to_usd(fecha)
-            usd = total / tasa if tasa != 0 else total
+            # Support both stored conventions for tasa. If it's small (<0.01)
+            # assume USD-per-CRC and multiply; otherwise divide.
+            if tasa == 0:
+                usd = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            elif tasa < Decimal("0.01"):
+                usd = (total * tasa).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            else:
+                usd = (total / tasa).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         else:
-            usd = total
+            usd = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         # ----- Cliente -----
         cliente_id = str(r.get("cliente_id"))

@@ -123,6 +123,16 @@ def load_dim_cliente(cur):
               AND d.EsRegistroActual = 1
         );
     """)
+
+    # Ensure a sentinel 'unknown' product exists so Fact inserts can
+    # reference a valid ProductoID when no SKU mapping is found.
+    cur.execute("""
+        IF NOT EXISTS (SELECT 1 FROM DimProducto WHERE SKU = '__UNKNOWN__')
+        BEGIN
+            INSERT INTO DimProducto (SKU, Nombre, Categoria, SourceSystem, FechaInicioValidez, EsRegistroActual, Activo)
+            VALUES ('__UNKNOWN__', 'PRODUCTO_DESCONOCIDO', 'SIN CATEGORIA', 'SYSTEM', GETDATE(), 1, 1)
+        END
+    """)
     return cur.rowcount
 
 
@@ -595,7 +605,7 @@ def load_fact_ventas(cur):
         )
         SELECT
             dc.ClienteID,
-            dp.ProductoID,
+            COALESCE(dp.ProductoID, (SELECT TOP 1 ProductoID FROM DimProducto WHERE SKU = '__UNKNOWN__')) AS ProductoID,
             CONVERT(VARCHAR(8), f.FechaOrden, 112) AS TiempoID,
             dcan.CanalID,
             f.Source_Order_Id,
@@ -630,7 +640,7 @@ def load_fact_ventas(cur):
 
 
 
-        INNER JOIN DimProducto dp
+        LEFT JOIN DimProducto dp
             ON skuMap.SKU_Oficial IS NOT NULL
            AND UPPER(dp.SKU) = UPPER(skuMap.SKU_Oficial)
 
