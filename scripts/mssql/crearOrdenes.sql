@@ -1,24 +1,22 @@
-DECLARE @TotalOrdenes INT = 100;
-DECLARE @FechaInicio DATE = '2025-01-01';
-DECLARE @FechaFin   DATE = '2025-6-30';
+DECLARE @TotalOrdenes INT = 20;
+DECLARE @FechaInicio DATE = '2024-06-01';
+DECLARE @FechaFin   DATE = '2025-12-31';
 
------------------------------------------------------
--- 1. Select 50 random clients
------------------------------------------------------
 ;WITH Clientes AS (
-    SELECT TOP 50 ClienteID, Email
+    SELECT TOP (50)
+        ClienteID,
+        Email,
+        rn = ROW_NUMBER() OVER (ORDER BY NEWID())
     FROM Cliente
     WHERE Email IS NOT NULL
-    ORDER BY NEWID()
+),
+ClienteCount AS (
+    SELECT MAX(rn) AS cnt FROM Clientes
 ),
 Productos AS (
     SELECT ProductoID, PrecioUnitario = ABS(CHECKSUM(NEWID()) % 15000 / 1.0)
     FROM Producto
 ),
-
------------------------------------------------------
--- 2. Generate evenly spread dates (1 date per order)
------------------------------------------------------
 Numeros AS (
     SELECT TOP (@TotalOrdenes)
            ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
@@ -28,21 +26,18 @@ SpreadDates AS (
     SELECT 
         n,
         Fecha = DATEADD(
-                    DAY,
-                    (DATEDIFF(DAY, @FechaInicio, @FechaFin) * (n-1)) / @TotalOrdenes
-                    + (ABS(CHECKSUM(NEWID())) % 5), -- jitter
-                @FechaInicio)
+                  DAY,
+                  (DATEDIFF(DAY, @FechaInicio, @FechaFin) * (n-1)) / @TotalOrdenes
+                  + (ABS(CHECKSUM(NEWID())) % 5),
+                  @FechaInicio
+                )
     FROM Numeros
 ),
-
------------------------------------------------------
--- 3. Create one order per date (matching a random client)
------------------------------------------------------
 Ordenes AS (
     SELECT
         s.n AS OrdenID,
         c.Email,
-        s.Fecha,
+        CAST(s.Fecha AS DATE) AS Fecha,
         CASE ABS(CHECKSUM(NEWID())) % 3 
             WHEN 0 THEN 'WEB'
             WHEN 1 THEN 'TIENDA'
@@ -51,14 +46,10 @@ Ordenes AS (
         'USD' AS Moneda,
         (ABS(CHECKSUM(NEWID())) % 3) + 1 AS NumProductos
     FROM SpreadDates s
-    CROSS APPLY (
-        SELECT TOP 1 Email FROM Clientes ORDER BY NEWID()
-    ) c
+    CROSS JOIN ClienteCount cc
+    JOIN Clientes c
+        ON c.rn = ((ABS(CHECKSUM(NEWID(), s.n)) % cc.cnt) + 1)
 ),
-
------------------------------------------------------
--- 4. Generate 1–3 items per order
------------------------------------------------------
 Items AS (
     SELECT 
         o.OrdenID,
@@ -68,29 +59,36 @@ Items AS (
     FROM Ordenes o
     CROSS APPLY (
         SELECT ProductoID, PrecioUnitario,
-               ROW_NUMBER() OVER (ORDER BY NEWID()) AS rn
+               ROW_NUMBER() OVER(ORDER BY NEWID()) AS rn
         FROM Productos
     ) p
     WHERE p.rn <= o.NumProductos
+),
+OrderesWithItems AS (
+    SELECT 
+        o.OrdenID,
+        o.Email,
+        o.Fecha,
+        o.Canal,
+        o.Moneda,
+        itemsJson = (
+            SELECT 
+                i.ProductoID AS producto_id,
+                i.Cantidad AS cantidad,
+                i.PrecioUnit AS precio_unit
+            FROM Items i
+            WHERE i.OrdenID = o.OrdenID
+            FOR JSON PATH
+        )
+    FROM Ordenes o
 )
-
------------------------------------------------------
--- 5. Final JSON
------------------------------------------------------
 SELECT 
-    o.Email AS email,
-    o.Fecha AS fecha,
-    o.Canal AS canal,
-    o.Moneda AS moneda,
-    (
-        SELECT 
-            i.ProductoID AS producto_id,
-            i.Cantidad AS cantidad,
-            i.PrecioUnit AS precio_unit
-        FROM Items i
-        WHERE i.OrdenID = o.OrdenID
-        FOR JSON PATH
-    ) AS items
-FROM Ordenes o
-ORDER BY o.Fecha
+    Email AS email,
+    Fecha AS fecha,
+    Canal AS canal,
+    Moneda AS moneda,
+    itemsJson AS items
+FROM OrderesWithItems
+WHERE itemsJson IS NOT NULL  -- filter out orders with no items
+ORDER BY Fecha
 FOR JSON PATH, WITHOUT_ARRAY_WRAPPER;

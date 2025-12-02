@@ -3,7 +3,9 @@ go
 WITH TopClientes AS (
     SELECT TOP 50 ClienteID
     FROM DimCliente
-    ORDER BY ClienteID
+    WHERE Nombre like 'Cliente MSSQL%'
+	ORDER BY ClienteID
+	
 ),
 TopProductos AS (
     SELECT TOP 50 ProductoID
@@ -28,7 +30,7 @@ SELECT
     a.Anio,
     m.Mes,
     -- Meta generada: entre 5,000 y 20,000 con ligera variación estacional
-    CAST( (5000 + (ABS(CHECKSUM(NEWID())) % 15000)) AS DECIMAL(18,2)) 
+    CAST( (0 + (ABS(CHECKSUM(NEWID())) % 500)) AS DECIMAL(18,2)) 
 FROM TopClientes c
 CROSS JOIN TopProductos p
 CROSS JOIN Anios a
