@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ShoppingCart, Trash2, Pencil } from "lucide-react";
+import { Plus, ShoppingCart, Trash2, Pencil, Eye } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { DataTable } from "../../components/common/DataTable";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import api from "../../services/api";
 import type { SupabaseOrden } from "../../types/Supabase/Orden";
 import { OrdenFormModal } from "../../components/Sales/OrdenFormModal";
@@ -13,6 +20,7 @@ import { toast } from "sonner";
 const SupabaseOrdenes = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingOrden, setEditingOrden] = useState<SupabaseOrden | null>(null);
+  const [detailsOrden, setDetailsOrden] = useState<SupabaseOrden | null>(null);
   const queryClient = useQueryClient();
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -183,6 +191,13 @@ const SupabaseOrdenes = () => {
                   accessor: (row: SupabaseOrden) => (
                     <div className="flex gap-2">
                       <button
+                        onClick={() => setDetailsOrden(row)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => {
                           setEditingOrden(row);
                           setIsFormOpen(true);
@@ -211,6 +226,103 @@ const SupabaseOrdenes = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Order Details Dialog */}
+      {detailsOrden && (
+        <Dialog open={!!detailsOrden} onOpenChange={(open) => !open && setDetailsOrden(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Order Details - #{detailsOrden.orden_id?.slice(0, 8)}</DialogTitle>
+              <DialogDescription>
+                {detailsOrden.fecha && new Date(detailsOrden.fecha).toLocaleString()}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Order Header Info */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Channel</p>
+                      <p className="font-semibold">
+                        <Badge className={getChannelColor(detailsOrden.canal)}>
+                          {detailsOrden.canal}
+                        </Badge>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Currency</p>
+                      <p className="font-semibold">{detailsOrden.moneda}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Order Items */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Invoice Lines</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {detailsOrden.items && detailsOrden.items.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="rounded-lg border overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="text-left p-3">Product ID</th>
+                              <th className="text-right p-3">Qty</th>
+                              <th className="text-right p-3">Unit Price</th>
+                              <th className="text-right p-3">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detailsOrden.items.map((item: any, idx: number) => (
+                              <tr key={idx} className="border-t hover:bg-muted/50">
+                                <td className="p-3">{item.producto_id?.slice(0, 8)}</td>
+                                <td className="text-right p-3 font-medium">{item.cantidad}</td>
+                                <td className="text-right p-3">
+                                  ${item.precio_unit?.toFixed(2) || "0.00"}
+                                </td>
+                                <td className="text-right p-3 font-semibold">
+                                  ${(item.cantidad * item.precio_unit)?.toFixed(2) || "0.00"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Totals */}
+                      <div className="flex justify-end gap-8 pt-4 border-t mt-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Subtotal</p>
+                          <p className="text-lg font-semibold">
+                            ${(detailsOrden.items.reduce(
+                              (sum: number, item: any) =>
+                                sum + item.cantidad * item.precio_unit,
+                              0
+                            ))?.toFixed(2) || "0.00"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Grand Total</p>
+                          <p className="text-lg font-bold text-supabase">
+                            {detailsOrden.moneda} ${detailsOrden.total?.toFixed(2) || "0.00"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">No items in this order</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

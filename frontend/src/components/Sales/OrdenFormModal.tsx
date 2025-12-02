@@ -159,8 +159,8 @@ export function OrdenFormModal({
         onOpenChange(isOpen);
         if (!isOpen) reset();
       }}
-      title="Nueva Orden"
-      description={`Crear una nueva orden en ${dbType.toUpperCase()}`}
+      title={initialData ? "Editar Orden" : "Nueva Orden"}
+      description={initialData ? `Editing orden` : `Crear una nueva orden en ${dbType.toUpperCase()}`}
     >
       <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
         {/* Cliente - Using Controller */}
