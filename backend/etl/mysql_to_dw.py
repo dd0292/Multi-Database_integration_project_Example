@@ -77,7 +77,7 @@ def load_mysql_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
         cur.executemany("""
             INSERT INTO stg.Producto
             (SourceSystem, SourceProductoID, CodigoAlterno, Nombre, Categoria)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
         """, rows_producto)
 
     # --------------------------

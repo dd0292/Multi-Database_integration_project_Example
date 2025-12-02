@@ -215,16 +215,16 @@ def load_dim_producto(cur):
                 SKU_Oficial,
                 -- Prefer non-NULL non-empty Nombre; if all NULL/empty, use 'UNKNOWN'
                 COALESCE(
-                    NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Nombre)) != '' THEN LTRIM(RTRIM(Nombre)) END), ''),
+                    NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Nombre)) != '' THEN LTRIM(RTRIM(Nombre)) END), ''), 
                     'UNKNOWN'
                 ) AS Nombre,
                 -- Prefer non-NULL non-empty Categoria; if all NULL/empty, use 'UNSPECIFIED'
                 COALESCE(
-                    NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Categoria)) != '' THEN LTRIM(RTRIM(Categoria)) END), ''),
+                    NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Categoria)) != '' THEN LTRIM(RTRIM(Categoria)) END), ''), 
                     'UNSPECIFIED'
                 ) AS Categoria,
-                -- Use SourceSystem with priority: MSSQL > others
-                MAX(CASE WHEN SourceSystem = 'MSSQL' THEN 'MSSQL' ELSE MIN(SourceSystem) END) AS SourceSystem
+                -- Prefer MSSQL when present, otherwise use the minimal SourceSystem value
+                COALESCE(MAX(CASE WHEN SourceSystem = 'MSSQL' THEN 'MSSQL' END), MIN(SourceSystem)) AS SourceSystem
             FROM stg.Producto
             WHERE SKU_Oficial IS NOT NULL
             GROUP BY SKU_Oficial
@@ -527,7 +527,7 @@ def load_dim_canal(cur):
     # Validate against whitelist; log invalid canales
     cur.execute("""
         SELECT DISTINCT Canal FROM stg.Canal
-        WHERE Canal NOT IN ('WEB', 'APP', 'PARTNER', 'RETAIL', 'B2B')
+        WHERE Canal NOT IN ('WEB', 'APP', 'PARTNER', 'RETAIL','TIENDA')
           AND Canal IS NOT NULL;
     """)
     invalid_canales = cur.fetchall()
@@ -538,22 +538,8 @@ def load_dim_canal(cur):
         INSERT INTO DimCanal (CodigoCanal, NombreCanal, Descripcion)
         SELECT DISTINCT
             s.Canal AS CodigoCanal,
-            CASE 
-                WHEN s.Canal = 'WEB' THEN 'Web Sales'
-                WHEN s.Canal = 'APP' THEN 'Mobile App'
-                WHEN s.Canal = 'PARTNER' THEN 'Partner Sales'
-                WHEN s.Canal = 'RETAIL' THEN 'Retail Store'
-                WHEN s.Canal = 'B2B' THEN 'Business-to-Business'
-                ELSE s.Canal
-            END AS NombreCanal,
-            CASE 
-                WHEN s.Canal = 'WEB' THEN 'E-commerce platform'
-                WHEN s.Canal = 'APP' THEN 'Mobile application'
-                WHEN s.Canal = 'PARTNER' THEN 'Third-party reseller'
-                WHEN s.Canal = 'RETAIL' THEN 'Physical retail location'
-                WHEN s.Canal = 'B2B' THEN 'Business customer'
-                ELSE 'Other channel'
-            END AS Descripcion
+            s.Canal AS NombreCanal,
+            NULL AS Descripcion
         FROM stg.Canal s
         WHERE NOT EXISTS (
             SELECT 1 FROM DimCanal d

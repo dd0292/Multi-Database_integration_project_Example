@@ -137,7 +137,7 @@ def load_neo4j_staging(rows_cliente, rows_producto, rows_tiempo, rows_canal, row
         cur.executemany("""
             INSERT INTO stg.Producto
             (SourceSystem, SourceProductoID, SKU, CodigoAlterno, CodigoMongo, Nombre, Categoria)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, rows_producto)
 
     if rows_tiempo:
