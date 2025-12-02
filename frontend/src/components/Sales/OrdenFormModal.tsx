@@ -358,7 +358,6 @@ export function OrdenFormModal({
                       <Input
                         type="number"
                         min="0"
-                        step="5"
                         {...register(`items.${index}.precio_unit`, { 
                           valueAsNumber: true, 
                           min: 0 
