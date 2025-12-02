@@ -682,12 +682,13 @@ def load_fact_ventas(cur):
         INNER JOIN DimCanal dcan
             ON dcan.CodigoCanal = f.Canal
 
-                WHERE NOT EXISTS (
-            SELECT 1 FROM FactVentas fv
-                        WHERE UPPER(LTRIM(RTRIM(fv.OrdenKeyNatural))) = UPPER(LTRIM(RTRIM(f.Source_Order_Id)))
-                            AND UPPER(LTRIM(RTRIM(fv.SourceSystem))) = UPPER(LTRIM(RTRIM(f.SourceSystem)))
-                            AND fv.ProductoID = COALESCE(dp.ProductoID, (SELECT TOP 1 ProductoID FROM DimProducto WHERE SKU = '__UNKNOWN__'))
-        );
+            WHERE NOT EXISTS (
+                SELECT 1 FROM FactVentas fv
+                WHERE UPPER(LTRIM(RTRIM(fv.OrdenKeyNatural))) = UPPER(LTRIM(RTRIM(f.Source_Order_Id)))
+                AND UPPER(LTRIM(RTRIM(fv.SourceSystem))) = UPPER(LTRIM(RTRIM(f.SourceSystem)))
+                AND fv.ProductoID = COALESCE(dp.ProductoID, (SELECT TOP 1 ProductoID FROM DimProducto WHERE SKU = '__UNKNOWN__'))
+                AND fv.ClienteID = dc.ClienteID
+            );
     """)
     return cur.rowcount
 
