@@ -210,38 +210,56 @@ def load_dim_producto(cur):
     # 5) INSERTAR EN DIMPRODUCTO (con defaults standardizados)
     # ======================================================
     cur.execute("""
-        WITH candidates AS (
+            WITH candidates AS (
+                SELECT
+                    SKU_Oficial,
+
+                    COALESCE(
+                        NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Nombre)) != '' THEN LTRIM(RTRIM(Nombre)) END), ''), 
+                        'UNKNOWN'
+                    ) AS Nombre,
+
+                    COALESCE(
+                        NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Categoria)) != '' THEN LTRIM(RTRIM(Categoria)) END), ''), 
+                        'UNSPECIFIED'
+                    ) AS Categoria,
+
+                    COALESCE(
+                        MAX(CASE WHEN SourceSystem = 'MSSQL' THEN 'MSSQL' END),
+                        MIN(SourceSystem)
+                    ) AS SourceSystem,
+
+                    -- NUEVO: Obtener el SourceProductoID correcto
+                    COALESCE(
+                        MAX(CASE WHEN SourceSystem = 'MSSQL' THEN SourceProductoID END),
+                        MIN(SourceProductoID)
+                    ) AS SourceProductoID
+
+                FROM stg.Producto
+                WHERE SKU_Oficial IS NOT NULL
+                GROUP BY SKU_Oficial
+            )
+
+            INSERT INTO DimProducto (
+                SKU, Nombre, Categoria, SourceSystem,
+                FechaInicioValidez, EsRegistroActual, Activo, Source_Order_Id
+            )
             SELECT
-                SKU_Oficial,
-                -- Prefer non-NULL non-empty Nombre; if all NULL/empty, use 'UNKNOWN'
-                COALESCE(
-                    NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Nombre)) != '' THEN LTRIM(RTRIM(Nombre)) END), ''), 
-                    'UNKNOWN'
-                ) AS Nombre,
-                -- Prefer non-NULL non-empty Categoria; if all NULL/empty, use 'UNSPECIFIED'
-                COALESCE(
-                    NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Categoria)) != '' THEN LTRIM(RTRIM(Categoria)) END), ''), 
-                    'UNSPECIFIED'
-                ) AS Categoria,
-                -- Prefer MSSQL when present, otherwise use the minimal SourceSystem value
-                COALESCE(MAX(CASE WHEN SourceSystem = 'MSSQL' THEN 'MSSQL' END), MIN(SourceSystem)) AS SourceSystem
-            FROM stg.Producto
-            WHERE SKU_Oficial IS NOT NULL
-            GROUP BY SKU_Oficial
-        )
-        INSERT INTO DimProducto (SKU, Nombre, Categoria, SourceSystem, FechaInicioValidez, EsRegistroActual, Activo)
-        SELECT
-            c.SKU_Oficial,
-            c.Nombre,
-            c.Categoria,
-            c.SourceSystem,
-            CAST(GETDATE() AS DATE),
-            1,
-            1
-        FROM candidates c
-        WHERE NOT EXISTS (
-            SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(c.SKU_Oficial)
-        );
+                c.SKU_Oficial,
+                c.Nombre,
+                c.Categoria,
+                c.SourceSystem,
+                CAST(GETDATE() AS DATE),
+                1,
+                1,
+                c.SourceProductoID   -- <-- YA EXISTE POR EL CTE
+            FROM candidates c
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM DimProducto d
+                WHERE UPPER(d.SKU) = UPPER(c.SKU_Oficial)
+            );
+
     """)
 
     # ======================================================

@@ -127,7 +127,7 @@ const MongoOrdenes = () => {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(orden.fecha).toLocaleString()}
+                        {orden.fecha}
                       </p>
                     </div>
                     <div className="text-right">

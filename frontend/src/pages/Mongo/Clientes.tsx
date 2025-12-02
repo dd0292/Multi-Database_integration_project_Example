@@ -106,9 +106,6 @@ const MongoClientes = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
-                      <div className="text-sm text-muted-foreground mr-4">
-                        {new Date(cliente.creado).toLocaleDateString()}
-                      </div>
                       <Button
                         variant="outline"
                         size="sm"

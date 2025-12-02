@@ -128,17 +128,37 @@ export function OrdenFormModal({
     }
 
     const productosStr = productosSeleccionados.join(",");
-    const fuente = dbType.toUpperCase(); // "MONGO", "MYSQL", etc.
+    const fuente = dbType.toUpperCase();
 
     try {
       const response = await api.get(
         `/apriori/recomendar?productos=${productosStr}&fuente=${fuente}`
       );
-      setRecomendaciones(response.data || []);
+
+      // El backend ya devuelve objetos completos como { antecedente, consecuente, ... }
+      const reglas = response.data || [];
+
+      setRecomendaciones(reglas);
+
     } catch (error) {
       console.error("Error obteniendo recomendaciones:", error);
       setRecomendaciones([]);
     }
+  }
+
+  function getProductoNombre(id: string) {
+    const p = productos?.find(
+      (x: any) =>
+        String(
+          x._id ||
+          x.id ||
+          x.ProductoId ||
+          x.ProductoID ||
+          x.producto_id
+        ) === String(id)
+    );
+
+    return p ? (p.nombre || p.Nombre) : null;
   }
 
   useEffect(() => {
@@ -420,72 +440,67 @@ export function OrdenFormModal({
           </div>
         </div>
 
-        {/* === RECOMENDACIONES APRIORI === */}
         {addRecomendations && (
           <Card className="mt-4 border-primary/30">
             <CardHeader>
               <CardTitle className="text-sm">Recomendaciones de productos</CardTitle>
             </CardHeader>
 
-            <CardContent className="space-y-2">
-
-              {/* Caso 1: no hay productos del usuario */}
-              {watchedItems.every((i) => !i.producto_id) && (
-                <p className="text-xs text-muted-foreground">
-                  Selecciona uno o más productos para generar recomendaciones.
-                </p>
-              )}
-
-              {/* Caso 2: Apriori no encontró nada */}
-              {watchedItems.some((i) => i.producto_id) &&
-                recomendaciones.length === 0 && (
+            <CardContent className="space-y-3">
+              {recomendaciones.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   No hay recomendaciones disponibles.
                 </p>
               )}
 
-              {/* Caso 3: Mostrar recomendaciones */}
-              {recomendaciones.length > 0 && (
-                <div className="space-y-2">
-                  {recomendaciones.map((rec, idx) => {
-                    const recomendados = rec.consecuente;
+              {recomendaciones.map((regla, idx) => {
+                const consecId = regla.consecuente_ids?.[0];
+                const nombre = getProductoNombre(consecId);
 
-                    return (
-                      <div
-                        key={idx}
-                        className="p-2 border rounded-md bg-muted/40 flex items-center justify-between"
-                      >
-                        <div className="text-xs">
-                          <p className="font-medium">Basado en: {rec.antecedente.join(", ")}</p>
-                          <p>Sugerido: {recomendados.join(", ")}</p>
-                          <p className="text-muted-foreground">
-                            Confianza: {(rec.confianza * 100).toFixed(1)}% • Lift: {rec.lift.toFixed(2)}
-                          </p>
-                        </div>
+                const valido = !!nombre;
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs ml-3"
-                          type="button"
-                          onClick={() => {
-                            for (const prod of recomendados) {
-                              append({
-                                producto_id: prod,
-                                cantidad: 1,
-                                precio_unit: 0,
-                                descuento_pct: 0
-                              });
-                            }
-                          }}
-                        >
-                          Agregar
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                return (
+                  <div
+                    key={idx}
+                    className="p-2 border rounded-md bg-muted/40 flex items-center justify-between"
+                  >
+                    <div className="text-xs">
+                      <p className="font-medium">
+                        {nombre || "Producto no encontrado"}
+                      </p>
+
+                      <p className="text-muted-foreground">
+                        Consecuente ID: {consecId}
+                      </p>
+
+                      <p className="text-muted-foreground">
+                        Confianza: {(regla.confianza * 100).toFixed(1)}%
+                        &nbsp; | &nbsp;
+                        Lift: {regla.lift.toFixed(2)}
+                      </p>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant={valido ? "outline" : "secondary"}
+                      className="text-xs ml-3"
+                      type="button"
+                      disabled={!valido}
+                      onClick={() => {
+                        if (!valido) return;
+                        append({
+                          producto_id: consecId,
+                          cantidad: 1,
+                          precio_unit: 0,
+                          descuento_pct: 0
+                        });
+                      }}
+                    >
+                      {valido ? "Agregar" : "No disponible"}
+                    </Button>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         )}

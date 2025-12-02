@@ -122,7 +122,7 @@ const Neo4jOrdenes = () => {
                       </div>
 
                       <p className="text-sm text-muted-foreground">
-                        {new Date(orden.fecha).toLocaleString()}
+                        {orden.fechan || "N/A"}
                       </p>
                     </div>
 

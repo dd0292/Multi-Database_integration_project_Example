@@ -1,4 +1,5 @@
 import json
+import pandas as pd
 from sqlalchemy import text
 
 from api.config import settings
@@ -7,16 +8,12 @@ from api.database.mssql_connection import get_connection
 
 def obtener_recomendaciones(productos: list[str], fuente: str):
     """
-    Retorna reglas de asociación relevantes según los productos escogidos,
-    usando únicamente el sistema de conexión existente de SQL Server.
-    
-    productos: lista de ProductoID como STR (porque vienen del query del frontend)
-    fuente: 'MSSQL' | 'MYSQL' | 'MONGODB' | 'SUPABASE' | 'NEO4J'
+    Retorna recomendaciones con nombres de productos usando DimProducto.
     """
 
     engine = get_connection(settings.SQLSERVER_DB_DW)
 
-    # 1. Obtener reglas de la fuente específica
+    # ========= 1. Cargar reglas desde SQL Server =========
     query = text("""
         SELECT 
             Antecedente,
@@ -30,28 +27,42 @@ def obtener_recomendaciones(productos: list[str], fuente: str):
 
     rows = engine.execute(query, {"fuente": fuente}).fetchall()
 
+    # ========= 2. Cargar catálogo de productos =========
+    df_prod = pd.read_sql(
+        "SELECT ProductoID, Nombre FROM dbo.DimProducto WHERE EsRegistroActual = 1",
+        engine
+    )
+
+    mapa_nombres = dict(zip(df_prod["ProductoID"].astype(str), df_prod["Nombre"]))
+
+    # ========= 3. Procesar reglas =========
     recomendaciones = []
 
-    # Convertir productos a string para comparación (como vienen en el JSON)
     productos_str = set([str(p) for p in productos])
 
-    # 2. Procesar reglas
     for row in rows:
-        antecedente = set(json.loads(row.Antecedente))  # ejemplo: ["12","55"]
-        consecuente = json.loads(row.Consecuente)
+        antecedente_ids = set(json.loads(row.Antecedente))
+        consecuente_ids = json.loads(row.Consecuente)
 
-        # Condición Apriori: antecedente ⊆ productos_seleccionados
-        if antecedente.issubset(productos_str):
+        # Condición Apriori
+        if antecedente_ids.issubset(productos_str):
+
+            # Convertir IDs -> nombres
+            antecedente_nombres = [mapa_nombres.get(pid, f"Producto {pid}") for pid in antecedente_ids]
+            consecuente_nombres = [mapa_nombres.get(pid, f"Producto {pid}") for pid in consecuente_ids]
+
             recomendaciones.append({
-                "antecedente": list(antecedente),
-                "consecuente": consecuente,
+                "antecedente_ids": list(antecedente_ids),
+                "consecuente_ids": consecuente_ids,
+                "antecedente": antecedente_nombres,
+                "consecuente": consecuente_nombres,
                 "soporte": row.Soporte,
                 "confianza": row.Confianza,
                 "lift": row.Lift
             })
 
-    # 3. Ordenar por Lift (más relevante primero)
+    # ========= 4. Ordenar =========
     recomendaciones.sort(key=lambda r: r["lift"], reverse=True)
 
-    # Retornar top 10 (puedes ajustarlo)
-    return recomendaciones[:10]
+    # Retornar top 3
+    return recomendaciones[:3]
