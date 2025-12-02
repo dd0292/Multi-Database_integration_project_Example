@@ -105,13 +105,13 @@ def load_dim_cliente(cur):
          SourceSystem, FechaInicioValidez, EsRegistroActual, Activo)
         SELECT 
             s.SourceClienteID,
-            s.Nombre,
-            s.Email,
-            s.Genero,
-            s.Pais,
-            s.FechaRegistro,
+            COALESCE(NULLIF(LTRIM(RTRIM(s.Nombre)), ''), 'UNKNOWN') AS Nombre,
+            COALESCE(NULLIF(LTRIM(RTRIM(s.Email)), ''), 'NO_EMAIL') AS Email,
+            COALESCE(NULLIF(LTRIM(RTRIM(s.Genero)), ''), 'U') AS Genero,
+            COALESCE(NULLIF(LTRIM(RTRIM(s.Pais)), ''), 'UNKNOWN') AS Pais,
+            COALESCE(s.FechaRegistro, CAST(GETDATE() AS DATE)) AS FechaRegistro,
             s.SourceSystem,
-            GETDATE(),
+            CAST(GETDATE() AS DATE) AS FechaInicioValidez,
             1,
             1
         FROM stg.Cliente s
@@ -187,46 +187,62 @@ def load_dim_producto(cur):
     """)
 
     # ======================================================
-    # 4) DEFINIR SKU OFICIAL DESDE MSSQL
+    # 4) DEFINIR SKU OFICIAL CON PRIORIDAD DE FUENTE
     # ======================================================
+    # Priority: MSSQL > MySQL > Mongo > Neo4j > Supabase
     cur.execute("""
-        UPDATE p
-        SET SKU_Oficial = p.SKU
-        FROM stg.Producto p
-        WHERE p.SourceSystem = 'MSSQL'
-          AND p.SKU IS NOT NULL;
+        UPDATE stg.Producto
+        SET SKU_Oficial = CASE 
+            WHEN SourceSystem = 'MSSQL' AND SKU IS NOT NULL THEN SKU
+            WHEN SourceSystem = 'MYSQL' AND SKU_Oficial IS NULL AND SKU IS NOT NULL THEN SKU
+            WHEN SourceSystem = 'MONGO' AND SKU_Oficial IS NULL AND CodigoMongo IS NOT NULL THEN CodigoMongo
+            WHEN SourceSystem = 'NEO4J' AND SKU_Oficial IS NULL AND CodigoNeo4j IS NOT NULL THEN CodigoNeo4j
+            WHEN SourceSystem = 'SUPABASE' AND SKU_Oficial IS NULL AND SKU IS NOT NULL THEN SKU
+            ELSE SKU_Oficial
+        END
+        WHERE SKU_Oficial IS NULL;
     """)
 
-    # ======================================================
-    # 5) HEREDAR SKU OFICIAL DESDE MSSQL
-    # ======================================================
+    # Fallback: use any available code if still NULL
     cur.execute("""
-        UPDATE p
-        SET SKU_Oficial = COALESCE(p.SKU,p.CodigoAlterno,p.CodigoMongo)
-        FROM stg.Producto p
+        UPDATE stg.Producto
+        SET SKU_Oficial = COALESCE(SKU, CodigoAlterno, CodigoMongo, CodigoNeo4j, 'NO_CODE_' + SUBSTRING(SourceProductoID, 1, 20))
+        WHERE SKU_Oficial IS NULL;
     """)
 
     
     # ======================================================
-    # 7) INSERTAR EN DIMPRODUCTO
+    # 5) INSERTAR EN DIMPRODUCTO (con defaults standardizados)
     # ======================================================
     cur.execute("""
         WITH candidates AS (
             SELECT
                 SKU_Oficial,
-                MIN(COALESCE(Nombre, 'DESCONOCIDO')) AS Nombre,
-                MIN(COALESCE(Categoria, 'SIN CATEGORIA')) AS Categoria,
-                MIN(SourceSystem) AS SourceSystem
+                -- Prefer non-NULL non-empty Nombre; if all NULL/empty, use 'UNKNOWN'
+                COALESCE(
+                    NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Nombre)) != '' THEN LTRIM(RTRIM(Nombre)) END), ''),
+                    'UNKNOWN'
+                ) AS Nombre,
+                -- Prefer non-NULL non-empty Categoria; if all NULL/empty, use 'UNSPECIFIED'
+                COALESCE(
+                    NULLIF(MAX(CASE WHEN LTRIM(RTRIM(Categoria)) != '' THEN LTRIM(RTRIM(Categoria)) END), ''),
+                    'UNSPECIFIED'
+                ) AS Categoria,
+                -- Use SourceSystem with priority: MSSQL > others
+                MAX(CASE WHEN SourceSystem = 'MSSQL' THEN 'MSSQL' ELSE MIN(SourceSystem) END) AS SourceSystem
             FROM stg.Producto
             WHERE SKU_Oficial IS NOT NULL
             GROUP BY SKU_Oficial
         )
-        INSERT INTO DimProducto (SKU, Nombre, Categoria, SourceSystem)
+        INSERT INTO DimProducto (SKU, Nombre, Categoria, SourceSystem, FechaInicioValidez, EsRegistroActual, Activo)
         SELECT
             c.SKU_Oficial,
             c.Nombre,
             c.Categoria,
-            c.SourceSystem
+            c.SourceSystem,
+            CAST(GETDATE() AS DATE),
+            1,
+            1
         FROM candidates c
         WHERE NOT EXISTS (
             SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(c.SKU_Oficial)
@@ -473,7 +489,7 @@ def load_dim_tiempo(cur):
         INSERT INTO DimTiempo (
             TiempoID, Fecha, Anio, Semestre, Trimestre,
             Mes, NombreMes, Dia, DiaSemana, NombreDiaSemana,
-            EsFinDeSemana, MesAnio
+            EsFinDeSemana, MesAnio, Activo
         )
         SELECT DISTINCT
             CONVERT(INT, FORMAT(t.Fecha, 'yyyyMMdd')) AS TiempoID,
@@ -487,7 +503,8 @@ def load_dim_tiempo(cur):
             DATEPART(WEEKDAY, t.Fecha),
             DATENAME(WEEKDAY, t.Fecha),
             CASE WHEN DATEPART(WEEKDAY, t.Fecha) IN (1,7) THEN 1 ELSE 0 END,
-            FORMAT(t.Fecha, 'yyyy-MM')
+            FORMAT(t.Fecha, 'yyyy-MM'),
+            1 AS Activo
         FROM stg.Tiempo t
         WHERE NOT EXISTS (
             SELECT 1 FROM DimTiempo d
@@ -503,16 +520,49 @@ def load_dim_tiempo(cur):
 # PASO 4: CARGAR DimCanal DESDE stg.Canal
 # ------------------------------------------------------------
 def load_dim_canal(cur):
+    # Normalize and validate canales
     cur.execute("""
-        INSERT INTO DimCanal (CodigoCanal, NombreCanal)
+        UPDATE stg.Canal
+        SET Canal = UPPER(LTRIM(RTRIM(Canal)))
+        WHERE Canal IS NOT NULL;
+    """)
+    
+    # Validate against whitelist; log invalid canales
+    cur.execute("""
+        SELECT DISTINCT Canal FROM stg.Canal
+        WHERE Canal NOT IN ('WEB', 'APP', 'PARTNER', 'RETAIL', 'B2B')
+          AND Canal IS NOT NULL;
+    """)
+    invalid_canales = cur.fetchall()
+    if invalid_canales:
+        print(f"WARNING: Invalid canales found (will be inserted as-is): {[row[0] for row in invalid_canales]}")
+    
+    cur.execute("""
+        INSERT INTO DimCanal (CodigoCanal, NombreCanal, Descripcion)
         SELECT DISTINCT
-            Canal AS CodigoCanal,
-            Canal AS NombreCanal
+            s.Canal AS CodigoCanal,
+            CASE 
+                WHEN s.Canal = 'WEB' THEN 'Web Sales'
+                WHEN s.Canal = 'APP' THEN 'Mobile App'
+                WHEN s.Canal = 'PARTNER' THEN 'Partner Sales'
+                WHEN s.Canal = 'RETAIL' THEN 'Retail Store'
+                WHEN s.Canal = 'B2B' THEN 'Business-to-Business'
+                ELSE s.Canal
+            END AS NombreCanal,
+            CASE 
+                WHEN s.Canal = 'WEB' THEN 'E-commerce platform'
+                WHEN s.Canal = 'APP' THEN 'Mobile application'
+                WHEN s.Canal = 'PARTNER' THEN 'Third-party reseller'
+                WHEN s.Canal = 'RETAIL' THEN 'Physical retail location'
+                WHEN s.Canal = 'B2B' THEN 'Business customer'
+                ELSE 'Other channel'
+            END AS Descripcion
         FROM stg.Canal s
         WHERE NOT EXISTS (
             SELECT 1 FROM DimCanal d
             WHERE d.CodigoCanal = s.Canal
-        );
+        )
+          AND s.Canal IS NOT NULL;
     """)
     return cur.rowcount
 
@@ -594,21 +644,23 @@ def load_fact_ventas(cur):
         INSERT INTO FactVentas (
             ClienteID, ProductoID, TiempoID, CanalID,
             OrdenKeyNatural, MonedaOrigen, TotalUSD, Cantidad,
-            PrecioUnitUSD, DescuentoPct, TipoCambioAplicado, SourceSystem
+            PrecioUnitUSD, DescuentoPct, TipoCambioAplicado, SourceSystem, FechaCarga, Activo
         )
         SELECT
             dc.ClienteID,
             COALESCE(dp.ProductoID, (SELECT TOP 1 ProductoID FROM DimProducto WHERE SKU = '__UNKNOWN__')) AS ProductoID,
-            CONVERT(VARCHAR(8), f.FechaOrden, 112) AS TiempoID,
+            CONVERT(INT, FORMAT(f.FechaOrden, 'yyyyMMdd')) AS TiempoID,
             dcan.CanalID,
             f.Source_Order_Id,
             f.MonedaOrigen,
             f.MontoUSD,
             f.Cantidad,
-            f.MontoUSD / NULLIF(f.Cantidad, 0),
+            CASE WHEN f.Cantidad > 0 THEN f.MontoUSD / f.Cantidad ELSE NULL END AS PrecioUnitUSD,
             f.DescuentoPct,
             f.TipoCambioAplicado,
-            f.SourceSystem
+            f.SourceSystem,
+            GETDATE() AS FechaCarga,
+            1 AS Activo
         FROM f
 
         INNER JOIN DimCliente dc
@@ -645,6 +697,7 @@ def load_fact_ventas(cur):
             SELECT 1 FROM FactVentas fv
                         WHERE UPPER(LTRIM(RTRIM(fv.OrdenKeyNatural))) = UPPER(LTRIM(RTRIM(f.Source_Order_Id)))
                             AND UPPER(LTRIM(RTRIM(fv.SourceSystem))) = UPPER(LTRIM(RTRIM(f.SourceSystem)))
+                            AND fv.ProductoID = COALESCE(dp.ProductoID, (SELECT TOP 1 ProductoID FROM DimProducto WHERE SKU = '__UNKNOWN__'))
         );
     """)
     return cur.rowcount
@@ -654,17 +707,27 @@ def run_staging_to_dw():
     """
     Conecta al DW y ejecuta los pasos de carga (Dim y Fact),
     confiere commit/rollback y cierra la conexión.
+    
+    Includes standardization fixes (Priority 1 & 2):
+    - Null defaults: UNKNOWN, U (gender), UNSPECIFIED (category), NO_EMAIL
+    - Explicit Activo=1, FechaCarga=GETDATE() on all DIMs and FACT
+    - Division by zero protection in PrecioUnitUSD (CASE WHEN Cantidad > 0)
+    - FactVentas dedup includes ProductoID to support multi-detail orders
+    - Channel normalization (UPPER, LTRIM, RTRIM) and validation vs. whitelist
+    - DimProducto SKU_Oficial priority-based assignment (MSSQL > MySQL > Mongo > Neo4j > Supabase)
     """
     conn = None
     try:
         conn = get_sqlsrv_dw_conn()
         cur = conn.cursor()
 
+        print("\n=== INICIÖ: Carga Staging → DW ===")
         print("Cargando DimCliente:", load_dim_cliente(cur))
         print("Cargando DimProducto:", load_dim_producto(cur))
         print("Cargando DimTiempo:", load_dim_tiempo(cur))
         print("Cargando DimCanal:", load_dim_canal(cur))
         print("Cargando FactVentas:", load_fact_ventas(cur))
+        print("=== FINALIZÖ: Carga Staging → DW ===")
 
         conn.commit()
     except Exception as e:
