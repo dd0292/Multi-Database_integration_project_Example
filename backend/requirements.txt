@@ -18,3 +18,4 @@ supabase
 python-multipart
 mysql-connector-python
 mlxtend
+pycountry

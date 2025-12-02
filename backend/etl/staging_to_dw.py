@@ -2,6 +2,10 @@ import pyodbc
 from datetime import datetime
 from decimal import Decimal
 import os
+try:
+    import pycountry
+except Exception:
+    pycountry = None
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,6 +27,78 @@ def get_sqlsrv_dw_conn():
 # PASO 1: CARGAR DimCliente DESDE stg.Cliente
 # ------------------------------------------------------------
 def load_dim_cliente(cur):
+
+    # ------------------------------------------------------------
+    def _resolve_country_name(raw_val: str) -> str:
+        if raw_val is None:
+            return None
+        v = raw_val.strip()
+        if not v:
+            return None
+
+        key = v.upper()
+
+        alias_map = {
+            'CRC': 'Costa Rica', 'CR': 'Costa Rica', 'COSTARICA': 'Costa Rica', 'COSTA RICA': 'Costa Rica',
+            'PA': 'Panama', 'PAN': 'Panama', 'PANAMA': 'Panama', 'PANAMÁ': 'Panama',
+            'CHL': 'Chile', 'CL': 'Chile',
+            'ESP': 'Spain', 'ES': 'Spain'
+        }
+        if key in alias_map:
+            return alias_map[key]
+
+        if pycountry:
+            try:
+                # alpha-2
+                if len(key) == 2:
+                    c = pycountry.countries.get(alpha_2=key)
+                    if c:
+                        return c.name
+                # alpha-3
+                if len(key) == 3:
+                    c = pycountry.countries.get(alpha_3=key)
+                    if c:
+                        return c.name
+
+
+                try:
+                    c = pycountry.countries.lookup(v)
+                    if c:
+                        return c.name
+                except LookupError:
+                    pass
+
+
+                for c in pycountry.countries:
+                    if c.name.upper() == key:
+                        return c.name
+            except Exception:
+                return v.title()
+
+        return v.title()
+
+    # 1) Normalizar valores distintos en stg.Cliente y actualizarlos
+    cur.execute("SELECT DISTINCT Pais FROM stg.Cliente WHERE Pais IS NOT NULL AND LEN(LTRIM(RTRIM(Pais))) > 0;")
+    rows = cur.fetchall()
+    for (pais,) in rows:
+        normalized = _resolve_country_name(pais)
+        if normalized and normalized != pais:
+            cur.execute(
+                "UPDATE stg.Cliente SET Pais = ? WHERE UPPER(LTRIM(RTRIM(Pais))) = UPPER(LTRIM(RTRIM(?)));",
+                normalized, pais
+            )
+
+    # 2) Normalizar filas activas existentes en DimCliente
+    cur.execute("SELECT DISTINCT Pais FROM DimCliente WHERE EsRegistroActual = 1 AND Pais IS NOT NULL AND LEN(LTRIM(RTRIM(Pais))) > 0;")
+    rows = cur.fetchall()
+    for (pais,) in rows:
+        normalized = _resolve_country_name(pais)
+        if normalized and normalized != pais:
+            cur.execute(
+                "UPDATE DimCliente SET Pais = ? WHERE EsRegistroActual = 1 AND UPPER(LTRIM(RTRIM(Pais))) = UPPER(LTRIM(RTRIM(?)));",
+                normalized, pais
+            )
+
     cur.execute("""
         INSERT INTO DimCliente
         (ClienteKeyNatural, Nombre, Email, Genero, Pais, FechaRegistro, 
@@ -125,64 +201,6 @@ def load_dim_producto(cur):
         WHERE p.SKU_Oficial IS NULL;
     """)
 
-    # ======================================================
-    # 6) INSERTAR EN MAPPRODUCTOEQUIVALENCIA (incluye variantes para MySQL)
-    # ======================================================
-    cur.execute("""
-        -- Inserta mapeos básicos desde stg.Producto (si no existen)
-        INSERT INTO MapProductoEquivalencia (CodigoOrigen, SKU_Oficial, SourceSystem, TipoCodigo)
-        SELECT DISTINCT
-            UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))),
-            p.SKU_Oficial,
-            p.SourceSystem,
-            CASE WHEN p.SKU IS NOT NULL THEN 'SKU' ELSE 'ALTERNO' END
-        FROM stg.Producto p
-        WHERE p.SKU_Oficial IS NOT NULL
-          AND COALESCE(p.SKU, p.CodigoAlterno) IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1 FROM MapProductoEquivalencia m
-              WHERE UPPER(LTRIM(RTRIM(m.CodigoOrigen))) = UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno))))
-                AND UPPER(m.SourceSystem) = UPPER(p.SourceSystem)
-          );
-    """)
-
-    # Variantes específicas para MySQL: insertar la versión con prefijo ALT + zero-pad (ej. ALT0062)
-    cur.execute("""
-        INSERT INTO MapProductoEquivalencia (CodigoOrigen, SKU_Oficial, SourceSystem, TipoCodigo)
-        SELECT DISTINCT
-            'ALT' + RIGHT('0000' + UPPER(CAST(UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))) AS VARCHAR(20))), 4) AS CodigoAlt,
-            p.SKU_Oficial,
-            'MYSQL',
-            'ALTERNO'
-        FROM stg.Producto p
-        WHERE UPPER(p.SourceSystem) = 'MYSQL'
-          AND p.SKU_Oficial IS NOT NULL
-          AND COALESCE(p.SKU, p.CodigoAlterno) IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1 FROM MapProductoEquivalencia m
-              WHERE UPPER(m.CodigoOrigen) = 'ALT' + RIGHT('0000' + UPPER(CAST(UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))) AS VARCHAR(20))), 4)
-                AND UPPER(m.SourceSystem) = 'MYSQL'
-          );
-    """)
-
-    # También insertar la forma numérica (sin prefijo) por si los Source_Producto_Id vienen como números
-    cur.execute("""
-        INSERT INTO MapProductoEquivalencia (CodigoOrigen, SKU_Oficial, SourceSystem, TipoCodigo)
-        SELECT DISTINCT
-            UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))),
-            p.SKU_Oficial,
-            'MYSQL',
-            CASE WHEN p.SKU IS NOT NULL THEN 'SKU' ELSE 'ALTERNO' END
-        FROM stg.Producto p
-        WHERE UPPER(p.SourceSystem) = 'MYSQL'
-          AND p.SKU_Oficial IS NOT NULL
-          AND COALESCE(p.SKU, p.CodigoAlterno) IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1 FROM MapProductoEquivalencia m
-              WHERE UPPER(m.CodigoOrigen) = UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno))))
-                AND UPPER(m.SourceSystem) = 'MYSQL'
-          );
-    """)
 
     # ======================================================
     # 7) INSERTAR EN DIMPRODUCTO
@@ -207,6 +225,88 @@ def load_dim_producto(cur):
         FROM candidates c
         WHERE NOT EXISTS (
             SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(c.SKU_Oficial)
+        );
+    """)
+
+    # ======================================================
+    # 6) INSERTAR EN MAPPRODUCTOEQUIVALENCIA 
+    # ======================================================
+    cur.execute("""
+        INSERT INTO MapProductoEquivalencia (CodigoOrigen, SKU_Oficial, SourceSystem, TipoCodigo)
+        SELECT s.CodigoOrigen, s.SKU_Oficial, s.SourceSystem, s.TipoCodigo
+        FROM (
+            SELECT
+                UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))) AS CodigoOrigen,
+                MIN(UPPER(LTRIM(RTRIM(p.SKU_Oficial)))) AS SKU_Oficial,
+                UPPER(LTRIM(RTRIM(p.SourceSystem))) AS SourceSystem,
+                CASE WHEN p.SKU IS NOT NULL THEN 'SKU' ELSE 'ALTERNO' END AS TipoCodigo
+            FROM stg.Producto p
+            WHERE p.SKU_Oficial IS NOT NULL
+              AND COALESCE(p.SKU, p.CodigoAlterno) IS NOT NULL
+            GROUP BY UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))), UPPER(LTRIM(RTRIM(p.SourceSystem))), CASE WHEN p.SKU IS NOT NULL THEN 'SKU' ELSE 'ALTERNO' END
+        ) s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM MapProductoEquivalencia m
+            WHERE UPPER(LTRIM(RTRIM(m.CodigoOrigen))) = s.CodigoOrigen
+              AND UPPER(LTRIM(RTRIM(m.SourceSystem))) = s.SourceSystem
+              AND UPPER(LTRIM(RTRIM(m.TipoCodigo))) = s.TipoCodigo
+        )
+        AND EXISTS (
+            SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(s.SKU_Oficial)
+        );
+    """)
+
+    # Variantes específicas para MySQL: insertar la versión con prefijo ALT + zero-pad (ej. ALT0062)
+    cur.execute("""
+        INSERT INTO MapProductoEquivalencia (CodigoOrigen, SKU_Oficial, SourceSystem, TipoCodigo)
+        SELECT s.CodigoAlt, s.SKU_Oficial, s.SourceSystem, s.TipoCodigo
+        FROM (
+            SELECT
+                'ALT' + RIGHT('0000' + UPPER(CAST(UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))) AS VARCHAR(20))), 4) AS CodigoAlt,
+                MIN(UPPER(LTRIM(RTRIM(p.SKU_Oficial)))) AS SKU_Oficial,
+                'MYSQL' AS SourceSystem,
+                'ALTERNO' AS TipoCodigo
+            FROM stg.Producto p
+            WHERE UPPER(p.SourceSystem) = 'MYSQL'
+              AND p.SKU_Oficial IS NOT NULL
+              AND COALESCE(p.SKU, p.CodigoAlterno) IS NOT NULL
+            GROUP BY 'ALT' + RIGHT('0000' + UPPER(CAST(UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))) AS VARCHAR(20))), 4)
+        ) s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM MapProductoEquivalencia m
+            WHERE UPPER(LTRIM(RTRIM(m.CodigoOrigen))) = s.CodigoAlt
+              AND UPPER(LTRIM(RTRIM(m.SourceSystem))) = s.SourceSystem
+              AND UPPER(LTRIM(RTRIM(m.TipoCodigo))) = s.TipoCodigo
+        )
+        AND EXISTS (
+            SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(s.SKU_Oficial)
+        );
+    """)
+
+    # También insertar la forma numérica (sin prefijo) por si los Source_Producto_Id vienen como números
+    cur.execute("""
+        INSERT INTO MapProductoEquivalencia (CodigoOrigen, SKU_Oficial, SourceSystem, TipoCodigo)
+        SELECT s.CodigoOrigen, s.SKU_Oficial, s.SourceSystem, s.TipoCodigo
+        FROM (
+            SELECT
+                UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))) AS CodigoOrigen,
+                MIN(UPPER(LTRIM(RTRIM(p.SKU_Oficial)))) AS SKU_Oficial,
+                'MYSQL' AS SourceSystem,
+                CASE WHEN p.SKU IS NOT NULL THEN 'SKU' ELSE 'ALTERNO' END AS TipoCodigo
+            FROM stg.Producto p
+            WHERE UPPER(p.SourceSystem) = 'MYSQL'
+              AND p.SKU_Oficial IS NOT NULL
+              AND COALESCE(p.SKU, p.CodigoAlterno) IS NOT NULL
+            GROUP BY UPPER(LTRIM(RTRIM(COALESCE(p.SKU, p.CodigoAlterno)))), CASE WHEN p.SKU IS NOT NULL THEN 'SKU' ELSE 'ALTERNO' END
+        ) s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM MapProductoEquivalencia m
+            WHERE UPPER(LTRIM(RTRIM(m.CodigoOrigen))) = s.CodigoOrigen
+              AND UPPER(LTRIM(RTRIM(m.SourceSystem))) = s.SourceSystem
+              AND UPPER(LTRIM(RTRIM(m.TipoCodigo))) = s.TipoCodigo
+        )
+        AND EXISTS (
+            SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(s.SKU_Oficial)
         );
     """)
 
@@ -417,10 +517,77 @@ def load_dim_canal(cur):
 
 # ------------------------------------------------------------
 # PASO 5: CARGAR FactVentas
-# (UNION TODOS LOS stg.FactVentas_*)
 # ------------------------------------------------------------
 def load_fact_ventas(cur):
     cur.execute("""
+        SELECT 'MySQL' AS src, COUNT(*) AS total_rows, COUNT(DISTINCT Source_Order_Id) AS distinct_orders FROM stg.FactVentas_MySQL
+        UNION ALL
+        SELECT 'MSSQL', COUNT(*), COUNT(DISTINCT Source_Order_Id) FROM stg.FactVentas_MSSQL
+        UNION ALL
+        SELECT 'Mongo', COUNT(*), COUNT(DISTINCT Source_Order_Id) FROM stg.FactVentas_Mongo
+        UNION ALL
+        SELECT 'Neo4j', COUNT(*), COUNT(DISTINCT Source_Order_Id) FROM stg.FactVentas_Neo4j
+        UNION ALL
+        SELECT 'Supabase', COUNT(*), COUNT(DISTINCT Source_Order_Id) FROM stg.FactVentas_Supabase;
+    """)
+    for r in cur.fetchall():
+        print("Staging:", r[0], "rows=", r[1], "distinct_orders=", r[2])
+
+    cur.execute("""
+        WITH union_all AS (
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD' AS MonedaOrigen, NULL AS DescuentoPct, NULL AS TipoCambioAplicado, NULL AS SKU_Oficial
+            FROM stg.FactVentas_MySQL
+            UNION ALL
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
+            FROM stg.FactVentas_MSSQL
+            UNION ALL
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
+            FROM stg.FactVentas_Mongo
+            UNION ALL
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
+            FROM stg.FactVentas_Neo4j
+            UNION ALL
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
+            FROM stg.FactVentas_Supabase
+        ), deduped AS (
+            SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY UPPER(LTRIM(RTRIM(SourceSystem))), UPPER(LTRIM(RTRIM(Source_Order_Id)))
+                ORDER BY COALESCE(FechaOrden, '1900-01-01') DESC
+            ) AS rn
+            FROM union_all
+        )
+        SELECT SourceSystem, COUNT(*) FROM deduped WHERE rn = 1 GROUP BY SourceSystem;
+    """)
+    for r in cur.fetchall():
+        print("Deduped staging (per order):", r[0], "rows=", r[1])
+
+    # --- INSERTAR: solo una fila por orden, normalizada, y solo cuando los joins son iguales
+    cur.execute("""
+        WITH union_all AS (
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD' AS MonedaOrigen, NULL AS DescuentoPct, NULL AS TipoCambioAplicado, NULL AS SKU_Oficial
+            FROM stg.FactVentas_MySQL
+            UNION ALL
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
+            FROM stg.FactVentas_MSSQL
+            UNION ALL
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
+            FROM stg.FactVentas_Mongo
+            UNION ALL
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
+            FROM stg.FactVentas_Neo4j
+            UNION ALL
+            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
+            FROM stg.FactVentas_Supabase
+        ), deduped AS (
+            SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY UPPER(LTRIM(RTRIM(SourceSystem))), UPPER(LTRIM(RTRIM(Source_Order_Id)))
+                ORDER BY COALESCE(FechaOrden, '1900-01-01') DESC
+            ) AS rn
+            FROM union_all
+        ), f AS (
+            SELECT * FROM deduped WHERE rn = 1
+        )
+
         INSERT INTO FactVentas (
             ClienteID, ProductoID, TiempoID, CanalID,
             OrdenKeyNatural, MonedaOrigen, TotalUSD, Cantidad,
@@ -439,64 +606,42 @@ def load_fact_ventas(cur):
             f.DescuentoPct,
             f.TipoCambioAplicado,
             f.SourceSystem
-        FROM (
-            -- UNION ALL de stg.FactVentas_* (igual que antes)
-            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD' AS MonedaOrigen, NULL AS DescuentoPct, NULL AS TipoCambioAplicado, NULL AS SKU_Oficial
-            FROM stg.FactVentas_MySQL
-
-            UNION ALL
-
-            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
-            FROM stg.FactVentas_MSSQL
-
-            UNION ALL
-
-            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
-            FROM stg.FactVentas_Mongo
-
-            UNION ALL
-
-            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
-            FROM stg.FactVentas_Neo4j
-
-            UNION ALL
-
-            SELECT SourceSystem, Source_Order_Id, Source_Cliente_Id, Source_Producto_Id, FechaOrden, Canal, MontoUSD, Cantidad, 'USD', NULL, NULL, SKU_Oficial
-            FROM stg.FactVentas_Supabase
-        ) f
+        FROM f
 
         INNER JOIN DimCliente dc
             ON dc.ClienteKeyNatural = f.Source_Cliente_Id
            AND dc.EsRegistroActual = 1
                 
 
-        INNER JOIN (
-            SELECT
-                UPPER(LTRIM(RTRIM(CodigoOrigen))) AS CodigoOrigenNorm,
-                UPPER(LTRIM(RTRIM(SourceSystem))) AS SourceSystemNorm,
-                MIN(SKU_Oficial) AS SKU_Oficial
-            FROM MapProductoEquivalencia
-            GROUP BY
-                UPPER(LTRIM(RTRIM(CodigoOrigen))),
-                UPPER(LTRIM(RTRIM(SourceSystem)))
-        ) mpe
-        ON mpe.SourceSystemNorm = UPPER(f.SourceSystem)
-        AND mpe.CodigoOrigenNorm =
-            UPPER(LTRIM(RTRIM(COALESCE(f.SKU_Oficial, f.Source_Producto_Id))))
+        OUTER APPLY (
+            SELECT TOP 1 mpe.SKU_Oficial
+            FROM MapProductoEquivalencia mpe
+            WHERE UPPER(LTRIM(RTRIM(mpe.SourceSystem))) = UPPER(LTRIM(RTRIM(f.SourceSystem)))
+            AND UPPER(LTRIM(RTRIM(mpe.CodigoOrigen))) =
+                UPPER(LTRIM(RTRIM(
+                        CASE 
+                            WHEN f.SourceSystem = 'MSSQL' OR f.SourceSystem = 'SUPABASE'
+                                THEN COALESCE(f.SKU_Oficial, f.Source_Producto_Id)
+                            ELSE f.Source_Producto_Id
+                        END
+                )))
+            ORDER BY mpe.SKU_Oficial
+        ) skuMap
 
 
 
         INNER JOIN DimProducto dp
-            ON UPPER(dp.SKU) = UPPER(mpe.SKU_Oficial)
-           AND dp.EsRegistroActual = 1
+            ON skuMap.SKU_Oficial IS NOT NULL
+           AND UPPER(dp.SKU) = UPPER(skuMap.SKU_Oficial)
+
 
         INNER JOIN DimCanal dcan
             ON dcan.CodigoCanal = f.Canal
 
-        WHERE NOT EXISTS (
+                WHERE NOT EXISTS (
             SELECT 1 FROM FactVentas fv
-            WHERE fv.OrdenKeyNatural = f.Source_Order_Id
-              AND fv.SourceSystem = f.SourceSystem
+                        WHERE UPPER(LTRIM(RTRIM(fv.OrdenKeyNatural))) = UPPER(LTRIM(RTRIM(f.Source_Order_Id)))
+                            AND UPPER(LTRIM(RTRIM(fv.SourceSystem))) = UPPER(LTRIM(RTRIM(f.SourceSystem)))
         );
     """)
     return cur.rowcount
