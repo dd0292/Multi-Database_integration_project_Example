@@ -167,24 +167,19 @@ def load_dim_producto(cur):
     # 3) LIMPIAR CÓDIGOS REDUNDANTES EN STAGING
     # ======================================================
 
-    cur.execute("""
-        UPDATE stg.Producto
-        SET CodigoNeo4j = NULL
-        WHERE CodigoNeo4j IS NOT NULL
-          AND (CodigoNeo4j = SKU OR CodigoNeo4j = SKU_Oficial);
-    """)
-    cur.execute("""
-        UPDATE stg.Producto
-        SET CodigoAlterno = NULL
-        WHERE CodigoAlterno IS NOT NULL
-          AND (CodigoAlterno = SKU OR CodigoAlterno = SKU_Oficial);
-    """)
-    cur.execute("""
-        UPDATE stg.Producto
-        SET CodigoMongo = NULL
-        WHERE CodigoMongo IS NOT NULL
-          AND (CodigoMongo = SKU OR CodigoMongo = SKU_Oficial);
-    """)
+
+   # cur.execute("""
+   #     UPDATE stg.Producto
+   #     SET CodigoAlterno = NULL
+   #     WHERE CodigoAlterno IS NOT NULL
+   #       AND (CodigoAlterno = SKU OR CodigoAlterno = SKU_Oficial);
+   # """)
+   # cur.execute("""
+   #     UPDATE stg.Producto
+   #     SET CodigoMongo = NULL
+   #     WHERE CodigoMongo IS NOT NULL
+   #       AND (CodigoMongo = SKU OR CodigoMongo = SKU_Oficial);
+   # """)
 
     # ======================================================
     # 4) DEFINIR SKU OFICIAL DESDE MSSQL
@@ -202,11 +197,16 @@ def load_dim_producto(cur):
     # ======================================================
     cur.execute("""
         UPDATE p
-        SET SKU_Oficial = COALESCE(p.SKU,p.CodigoAlterno,p.CodigoMongo)
+        SET SKU_Oficial = m.SKU
         FROM stg.Producto p
+        JOIN stg.Producto m
+          ON m.Nombre = p.Nombre
+         AND m.Categoria = p.Categoria
+         AND m.SourceSystem = 'MSSQL'
+        WHERE p.SKU_Oficial IS NULL;
     """)
 
-    
+
     # ======================================================
     # 7) INSERTAR EN DIMPRODUCTO
     # ======================================================
@@ -232,7 +232,8 @@ def load_dim_producto(cur):
             SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(c.SKU_Oficial)
         );
     """)
-# ======================================================
+
+    # ======================================================
     # 6) INSERTAR EN MAPPRODUCTOEQUIVALENCIA 
     # ======================================================
     cur.execute("""
@@ -313,6 +314,7 @@ def load_dim_producto(cur):
             SELECT 1 FROM DimProducto d WHERE UPPER(d.SKU) = UPPER(s.SKU_Oficial)
         );
     """)
+
 
     # ======================================================
     # 8) LIMPIAR DUPLICADOS HISTÓRICOS
